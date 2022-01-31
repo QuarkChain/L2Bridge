@@ -72,7 +72,7 @@ contract L2BridgeSource {
             newHead = keccak256(abi.encode(newHead, rewardDataList[i]));
 
             if (
-                skipFlags[i / 256] >> (i % 256) == 0 &&
+                ((skipFlags[i / 256] >> (i % 256)) & 1) == 0 &&
                 transferStatus[rewardDataList[i].transferDataHash] ==
                 XFER_PENDING
             ) {
