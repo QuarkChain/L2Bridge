@@ -1,0 +1,11 @@
+[
+  "function balanceOf(address owner) view returns (uint256)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+
+  "function lock(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
+  "function burn(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
+  "function lockNative(address _to, uint256 _dstChain) public payable"
+]

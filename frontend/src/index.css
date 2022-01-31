@@ -1,0 +1,15 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Gotham A", "Gotham B", sans-serif !important;
+}
+
+[type='number']::-webkit-inner-spin-button,
+[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
