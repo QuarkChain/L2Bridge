@@ -22,6 +22,18 @@ contract L2BridgeSource {
     uint256 processedCount;
     bytes32 processedRewardHashOnion;
 
+    event Deposit(
+        address srcTokenAddress,
+        address dstTokenAddress,
+        address source,
+        address destination,
+        uint256 amount,
+        uint256 fee,
+        uint256 startTime,
+        uint256 feeRampup,
+        uint256 expiration
+    );
+
     constructor() {}
 
     /*
@@ -41,6 +53,17 @@ contract L2BridgeSource {
         );
 
         transferStatus[key] = XFER_PENDING;
+        emit Deposit(
+            transferData.srcTokenAddress,
+            transferData.dstTokenAddress,
+            msg.sender,
+            transferData.destination,
+            transferData.amount,
+            transferData.amount,
+            transferData.startTime,
+            transferData.feeRampup,
+            transferData.expiration
+        );
     }
 
     /*
