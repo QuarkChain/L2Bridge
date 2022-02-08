@@ -2,6 +2,25 @@ const { web3 } = require("hardhat");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+async function getClaimData(xferDatas, bridgeDst, claimer){
+  let rewardData = [];
+  for(let i = 0; i < xferDatas.length; i++){
+    await bridgeDst.claim(xferDatas[i]);
+    let count, hash = await bridgeDst.declareNewHashChainHead(i);
+    rewardData.push({
+      transferDataHash: hash,
+      claimer: claimer.address,
+      srcTokenAddress: xferDatas[i].srcTokenAddress,
+      amount: xferDatas[i].amount,
+    });
+    if (i % 256 == 0){
+      skipList.push(skip);
+      skip = 0;
+    }
+    skip << 1;
+  }
+}
+
 describe("L2Bridge", function () {
   let acc0, acc1, acc2, bridgeSrc, bridgeDst, tokenSrc, tokenDst, xferData;
 
@@ -10,7 +29,7 @@ describe("L2Bridge", function () {
     const BridgeSource = await ethers.getContractFactory("TestL2BridgeSource");
     bridgeSrc = await BridgeSource.deploy();
     const BridgeDestination = await ethers.getContractFactory("L2BridgeDestination");
-    bridgeDst = await BridgeDestination.deploy();
+    bridgeDst = await BridgeDestination.deploy(2);
     const Token = await ethers.getContractFactory("TestERC20");
     tokenSrc = await Token.deploy();
     tokenDst = await Token.deploy();

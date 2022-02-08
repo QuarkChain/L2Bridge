@@ -16,7 +16,7 @@ contract OptimismBridgeDestination is L2BridgeDestination {
 
     event L2ToL1TxCreated(uint256 count, bytes32 chainHash);
 
-    constructor(address _l1Target) {
+    constructor(address _l1Target, uint256 _gap) L2BridgeDestination(_gap) {
         l1Target = _l1Target;
     }
 
