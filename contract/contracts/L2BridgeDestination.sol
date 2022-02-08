@@ -16,6 +16,13 @@ contract L2BridgeDestination {
     bytes32 public rewardHashOnion;
     bytes32[] rewardHashOnionHistoryList;
 
+    event Claim(
+        bytes32 transferDataHash,
+        address claimer,
+        address srcTokenAddress,
+        uint256 amount
+    );
+
     constructor(uint256 _gap) {
         GAP = _gap;
     }
@@ -58,6 +65,8 @@ contract L2BridgeDestination {
             amount
         );
 
+        emit Claim(key, msg.sender, transferData.srcTokenAddress, transferData.amount);
+
         // construct reward data and append it to onion
         L2BridgeLib.RewardData memory rewardData = L2BridgeLib.RewardData({
             transferDataHash: key,
@@ -71,8 +80,8 @@ contract L2BridgeDestination {
         );
         transferCount++;
 
-        // save to history per 100 transfers
-        if (transferCount % 100 == 0) {
+        // save to history per GAP transfers
+        if (transferCount % GAP == 0) {
             rewardHashOnionHistoryList.push(rewardHashOnion);
         }
     }

@@ -92,7 +92,8 @@ contract L2BridgeSource {
     ) public {
         bytes32 newHead = processedRewardHashOnion;
         for (uint256 i = 0; i < rewardDataList.length; i++) {
-            newHead = keccak256(abi.encode(newHead, rewardDataList[i]));
+            bytes32 rewardDataHash = keccak256(abi.encode(rewardDataList[i]));
+            newHead = keccak256(abi.encode(newHead, rewardDataHash));
 
             if (
                 ((skipFlags[i / 256] >> (i % 256)) & 1) == 0 &&
@@ -118,7 +119,7 @@ contract L2BridgeSource {
         }
 
         require(
-            knownHashOnions[processedCount + rewardDataList.length] != newHead,
+            knownHashOnions[processedCount + rewardDataList.length] == newHead,
             "unknown hash"
         );
         processedCount += rewardDataList.length;
