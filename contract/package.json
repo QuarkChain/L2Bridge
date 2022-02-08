@@ -28,6 +28,9 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "deployl1": "hardhat run scripts/deployl1.js",
+    "deployl2": "hardhat run scripts/deployl2.js",
+    "verify": "hardhat run scripts/verify.js",
     "prettier:check": "prettier-check contracts/**/*.sol",
     "prettier:fix": "prettier --write contracts/**/*.sol test/**/*.js scripts/**/*.js"
   },
