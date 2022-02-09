@@ -16,7 +16,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY } =
+const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY} =
   process.env;
 
 /**
@@ -39,7 +39,7 @@ module.exports = {
       url: `https://arbitrum-rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
-    optimism: {
+    optimisticKovan: {
       url: `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
@@ -49,6 +49,9 @@ module.exports = {
     currency: "USD",
   },
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY,
+    apiKey: {
+      kovan: ETHERSCAN_API_KEY,
+      optimisticKovan: OPT_KOVAN_API_KEY,
+    }
   }
 };

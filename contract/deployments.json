@@ -1,7 +1,46 @@
 {
+  "42": {
+    "bridge": "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
+    "bridgeArgs": [
+      "0xBdd2E132F5F87672F71138A562142bc19BEC7aF3",
+      "0xBdd2E132F5F87672F71138A562142bc19BEC7aF3",
+      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
+    ]
+  },
+  "69": {
+    "bridgeSrc": "0x87a6A26e6b8dffED184E5CE0F08628a802293460",
+    "bridgeSrcArgs": [
+      "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c"
+    ],
+    "bridgeDest": "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
+    "bridgeDestArgs": [
+      "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
+      100
+    ],
+    "tokenSrc": "0xc439C1BF006444C315eCdE216358C6FC22700404",
+    "tokenSrcArgs": [
+      "Source"
+    ],
+    "tokenDest": "0xA990Df4eD7Ed49A3501FAdF81D9635B3E6fA8610",
+    "tokenDestArgs": [
+      "Destination"
+    ]
+  },
   "31337": {
     "bridge": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "bridgeArgs": [
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
+    ],
     "bridgeSrc": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "bridgeDest": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    "bridgeSrcArgs": [
+      "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    ],
+    "bridgeDest": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "bridgeDestArgs": [
+      "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      100
+    ]
   }
 }
