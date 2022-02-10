@@ -24,11 +24,11 @@ const memo = atom<string>({
 })
 const fromBlockChain = atom<BlockChainType>({
   key: 'sendFromBlockChain',
-  default: BlockChainType.bsctest
+  default: BlockChainType.optimism
 })
 const toBlockChain = atom<BlockChainType>({
   key: 'sendToBlockChain',
-  default: BlockChainType.qkcdev
+  default: BlockChainType.arbitrum
 })
 const fee = atom<Number>({
   key: 'sendFee',

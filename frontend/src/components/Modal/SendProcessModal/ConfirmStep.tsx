@@ -15,7 +15,6 @@ import SendProcessStore, { ProcessStatus } from 'store/SendProcessStore'
 
 import useAsset from 'hooks/useAsset'
 
-import { BlockChainType } from 'types/network'
 import AuthStore from '../../../store/AuthStore'
 import useNetwork from '../../../hooks/useNetwork'
 import ExtLink from '../../ExtLink'
@@ -146,12 +145,12 @@ const ConfirmStep = (): ReactElement => {
           <StyledSecDText>
             <ExtLink
               href={getScannerLink({
-                address: loginUser.address + (fromBlockChain === BlockChainType.qkc ? NETWORK.QKC_SHARDID.SHARD0.substr(2) : ''),
+                address: loginUser.address,
                 type: 'address',
                 chain: fromBlockChain
               })}
             >
-              {loginUser.address + (fromBlockChain === BlockChainType.qkc ? NETWORK.QKC_SHARDID.SHARD0.substr(2) : '')}
+              {loginUser.address}
             </ExtLink>
           </StyledSecDText>
         </StyledSecD>
@@ -163,12 +162,12 @@ const ConfirmStep = (): ReactElement => {
           <StyledSecDText>
             <ExtLink
               href={getScannerLink({
-                address: toAddress + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)),
+                address: toAddress,
                 type: 'address',
                 chain: toBlockChain
               })}
             >
-              {toAddress + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2))}
+              {toAddress}
             </ExtLink>
           </StyledSecDText>
         </StyledSecD>
@@ -183,7 +182,7 @@ const ConfirmStep = (): ReactElement => {
                 {`(estimated) ${formatBalance(shuttleFee, asset?.decimal)}`}
                 <ExtLink
                   href={getScannerLink({
-                    address: asset?.tokenAddress + (fromBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)),
+                    address: asset?.tokenAddress || '',
                     type: 'address',
                     chain: fromBlockChain
                   })}
@@ -206,7 +205,7 @@ const ConfirmStep = (): ReactElement => {
                 {` (estimated) ${formatBalance(amountAfterShuttleFee, asset?.decimal)}`}
                 <ExtLink
                   href={getScannerLink({
-                    address: asset?asset.mapping?asset.mapping[toBlockChainId][1]:"" + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)):"",
+                    address: asset?asset.mapping?asset.mapping[toBlockChainId][1]:"" :"",
                     type: 'address',
                     chain: toBlockChain
                   })}

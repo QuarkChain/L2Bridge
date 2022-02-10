@@ -91,7 +91,7 @@ const useToken = (): {
         const tx = withSigner.approve(bridgeAddress, amount?BigNumber.from(amount):MaxUint256)
         const {hash} = await tx
         return { success: true, hash }
-      } catch (error) {
+      } catch (error: any) {
         return {
           success: false,
           errorMessage: _.toString(error?.message)

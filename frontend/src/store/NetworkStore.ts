@@ -3,12 +3,12 @@ import { Network as EtherNetwork } from '@ethersproject/networks'
 
 // import { NETWORK } from 'consts'
 import {
-  BlockChainType,
+  // BlockChainType,
   ExtTerraNetwork,
   // LocalTerraNetwork,
 } from 'types/network'
-import AuthStore from './AuthStore'
-import SendStore from './SendStore'
+// import AuthStore from './AuthStore'
+// import SendStore from './SendStore'
 
 const terraExt = atom<ExtTerraNetwork | undefined>({
   key: 'terraExt',
@@ -28,17 +28,17 @@ const etherBaseExt = atom<EtherNetwork | undefined>({
 const isTestnet = selector<boolean>({
   key: 'isTestnet',
   get: ({ get }) => {
-    const isLoggedIn = get(AuthStore.isLoggedIn)
-    const fromBlockChain = get(SendStore.fromBlockChain)
-    if (isLoggedIn) {
-      const _etherBaseExt = get(etherBaseExt)
+    // const isLoggedIn = get(AuthStore.isLoggedIn)
+    // const fromBlockChain = get(SendStore.fromBlockChain)
+    // if (isLoggedIn) {
+    //   const _etherBaseExt = get(etherBaseExt)
 
-      if (fromBlockChain === BlockChainType.ethereum) {
-        return _etherBaseExt?.name !== 'homestead'
-      } else {
-        return _etherBaseExt?.chainId !== 43
-      }
-    }
+    //   if (fromBlockChain === BlockChainType.ethereum) {
+    //     return _etherBaseExt?.name !== 'homestead'
+    //   } else {
+    //     return _etherBaseExt?.chainId !== 43
+    //   }
+    // }
     return false
   },
 })

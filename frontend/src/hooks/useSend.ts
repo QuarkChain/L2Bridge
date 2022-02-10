@@ -6,7 +6,6 @@ import NetworkStore from 'store/NetworkStore'
 import SendStore from 'store/SendStore'
 import { NETWORK } from 'consts'
 
-import { BlockChainType } from 'types/network'
 import { AssetSymbolEnum, TokenTypeEnum } from 'types/asset'
 import { EtherBaseReceiptResultType, RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
@@ -58,7 +57,7 @@ const useSend = (): UseSendType => {
     token: AssetSymbolEnum
     fee?: Number
   }[]> => {
-    if (fromBlockChain === BlockChainType.qkc && etherBaseExt) {
+    if (etherBaseExt) {
       return Promise.all(
         _.map(AssetSymbolEnum, async (token) => {
           try {

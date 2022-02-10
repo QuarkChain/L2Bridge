@@ -1,11 +1,6 @@
 export enum BlockChainType {
-  ethereum = 'ethereum',
-  qkc = 'qkc',
-  qkcdev = 'qkcdev',
-  bsc = 'bsc',
-  bsctest = 'bsctest',
-  rinkeby = 'rinkeby',
-  ropsten = 'ropsten',
+  optimism = 'optimism',
+  arbitrum = 'arbitrum',
 }
 
 export type BlockChainParaType = {
@@ -27,7 +22,7 @@ export interface LocalTerraNetwork {
   shuttle: Record<ShuttleNetwork, string>
 }
 
-export type ShuttleNetwork = BlockChainType.ethereum | BlockChainType.bsc | BlockChainType.qkc
+export type ShuttleNetwork = BlockChainType.arbitrum | BlockChainType.optimism
 
 export interface ExtTerraNetwork {
   name: 'mainnet' | 'testnet'

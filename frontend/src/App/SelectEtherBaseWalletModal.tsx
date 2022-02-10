@@ -1,6 +1,6 @@
 import { Fragment, ReactElement } from 'react'
 import styled from 'styled-components'
-import { useRecoilState, useRecoilValue } from 'recoil'
+import { useRecoilState } from 'recoil'
 import { ethers } from 'ethers'
 
 import { COLOR, WALLET, STYLE } from 'consts'
@@ -18,10 +18,8 @@ import metaMaskService from 'services/metaMaskService'
 import SelectWalletStore, {
   SelectWalletModalType,
 } from 'store/SelectWalletStore'
-import SendStore from 'store/SendStore'
 
 import { WalletEnum } from 'types/wallet'
-import { BlockChainType } from 'types/network'
 
 const { walletLogo } = WALLET
 
@@ -55,7 +53,6 @@ const StyledButtonContents = styled.div`
 const SelectEtherBaseWalletModal = (): ReactElement => {
   // const { login, logout } = useAuth()
   const { login } = useAuth()
-  const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
 
   const [isVisibleModalType, setIsVisibleModalType] = useRecoilState(
     SelectWalletStore.isVisibleModalType
@@ -93,26 +90,12 @@ const SelectEtherBaseWalletModal = (): ReactElement => {
     }
   }
 
-  const buttons =
-    fromBlockChain !== BlockChainType.bsctest
-      ? [
+  const buttons = [
           {
             src: walletLogo[WalletEnum.MetaMask],
             label: 'Metamask',
             onClick: onClickMetamask,
           }]
-      : [
-          // {
-          //   src: walletLogo[WalletEnum.Binance],
-          //   label: 'BinanceChain',
-          //   onClick: onClickBinanceChain,
-          // },
-          {
-            src: walletLogo[WalletEnum.MetaMask],
-            label: 'Metamask',
-            onClick: onClickMetamask,
-          },
-        ]
 
   return (
     <DefaultModal

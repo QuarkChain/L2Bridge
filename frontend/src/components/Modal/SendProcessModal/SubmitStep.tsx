@@ -18,7 +18,6 @@ import ExtLink from 'components/ExtLink'
 
 import { RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
-import { BlockChainType } from 'types/network'
 
 import useAsset from 'hooks/useAsset'
 import useSend from 'hooks/useSend'
@@ -116,17 +115,11 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
       setStatus(ProcessStatus.Pending)
 
       try {
-        if (fromBlockChain === BlockChainType.qkc) {
-          setStatus(ProcessStatus.Done)
-        } else {
-          if (fromBlockChain === BlockChainType.bsc){
-            await waitForEtherBaseTransaction({
-              hash: submitResult.hash,
-            })
-          }
+          await waitForEtherBaseTransaction({
+            hash: submitResult.hash,
+          })
           setloading(false)
           setStatus(ProcessStatus.Done)
-        }
       } catch (error) {
         setSumbitError(_.toString(error))
       }

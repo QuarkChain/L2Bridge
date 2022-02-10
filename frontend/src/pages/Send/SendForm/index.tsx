@@ -259,9 +259,6 @@ const SendForm = ({
   useEffect(() => {
     if (status === ProcessStatus.Done) {
       onChangeAmount({ value: '' })
-      if (fromBlockChain === BlockChainType.qkc) {
-        onChangeToAddress({ value: loginUser.address })
-      }
       getAssetList()
     }
   }, [status])
@@ -342,10 +339,10 @@ const SendForm = ({
   useEffect(() => {
     STYLE.isSupportBrowser && selectWallet.open()
     setToAddress(loginUser.address)
-    if (fromBlockChain === BlockChainType.qkcdev) {
-      setToBlockChain(BlockChainType.bsctest)
-    } else if (fromBlockChain === BlockChainType.bsctest) {
-      setToBlockChain(BlockChainType.qkcdev)
+    if (fromBlockChain === BlockChainType.arbitrum) {
+      setToBlockChain(BlockChainType.optimism)
+    } else if (fromBlockChain === BlockChainType.optimism) {
+      setToBlockChain(BlockChainType.arbitrum)
     }
   }, [fromBlockChain])
 
@@ -404,12 +401,12 @@ const SendForm = ({
                         //   value: BlockChainType.ropsten,
                         // },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.qkcdev],
-                          value: BlockChainType.qkcdev,
+                          label: NETWORK.blockChainName[BlockChainType.arbitrum],
+                          value: BlockChainType.arbitrum,
                         },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.bsctest],
-                          value: BlockChainType.bsctest,
+                          label: NETWORK.blockChainName[BlockChainType.optimism],
+                          value: BlockChainType.optimism,
                         }
                       ]
                     }}
@@ -446,14 +443,14 @@ const SendForm = ({
                         //   isDisabled: fromBlockChain === BlockChainType.rinkeby
                         // },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.qkcdev],
-                          value: BlockChainType.qkcdev,
-                          isDisabled: fromBlockChain === BlockChainType.qkcdev
+                          label: NETWORK.blockChainName[BlockChainType.optimism],
+                          value: BlockChainType.optimism,
+                          isDisabled: fromBlockChain === BlockChainType.optimism
                         },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.bsctest],
-                          value: BlockChainType.bsctest,
-                          isDisabled: fromBlockChain === BlockChainType.bsctest
+                          label: NETWORK.blockChainName[BlockChainType.arbitrum],
+                          value: BlockChainType.arbitrum,
+                          isDisabled: fromBlockChain === BlockChainType.arbitrum
                         }
                       ]
                     }}
@@ -493,7 +490,6 @@ const SendForm = ({
                 }}
                 defaultValue={loginUser.address}
                 placeholder={loginUser.address}
-                disabled={fromBlockChain === BlockChainType.bsc}
               />
               <FormErrorMessage
                 errorMessage={validationResult.errorMessage?.toAddress}
