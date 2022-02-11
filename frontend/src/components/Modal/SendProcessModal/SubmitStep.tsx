@@ -90,7 +90,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
   const toAddress = useRecoilValue(SendStore.toAddress)
   const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
-  const amountAfterShuttleFee = useRecoilValue(SendStore.amountAfterShuttleFee)
+  const amountWithShuttleFee = useRecoilValue(SendStore.amountWithShuttleFee)
 
   const setStatus = useSetRecoilState(SendProcessStore.sendProcessStatus)
   const loginUser = useRecoilValue(AuthStore.loginUser)
@@ -184,10 +184,10 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
           </div>
               <div style={{ fontSize: 12 }}>
                 <StyledAmountText
-                  isError={amountAfterShuttleFee.isLessThanOrEqualTo(0)}
+                  isError={amountWithShuttleFee.isLessThanOrEqualTo(0)}
                 >
-                  {`After bridge fee : (estimated) ${formatBalance(
-                    amountAfterShuttleFee,
+                  {`Total cost: (estimated) ${formatBalance(
+                    amountWithShuttleFee,
                     asset?.decimal
                   )} ${asset?.symbol}`}
                 </StyledAmountText>

@@ -13,8 +13,8 @@ const blockChainName: Record<BlockChainType, string> = {
 }
 
 const blockChainDomain: Record<BlockChainType, string> = {
-  [BlockChainType.optimism]: 'https://kovan-optimistic.etherscan.io/',
-  [BlockChainType.arbitrum]: 'https://rinkeby-explorer.arbitrum.io/',
+  [BlockChainType.optimism]: 'kovan-optimistic.etherscan.io',
+  [BlockChainType.arbitrum]: 'rinkeby-explorer.arbitrum.io',
 }
 
 const blockChainParam: Record<BlockChainType, BlockChainParaType> = {

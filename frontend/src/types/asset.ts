@@ -1,18 +1,6 @@
 export enum AssetSymbolEnum {
-  "USDT" = "USDT",
-  "USDC" = "USDC",
-  "BTCB" = "BTCB",
-  "WBNB" = "WBNB",
-  "ETH" = "ETH",
-  "BNB" = "BNB",
-  "BUSD" = "BUSD",
-  "DL" = "DL",
-  "KKK" = "KKK",
-  "SMTY" = "SMTY",
-  "PM" = "PM",
-  "QI" = "QI",
-  "QKC" = "QKC",
-  "WQKC" = "WQKC",
+  "Source" = "Source",
+  "Destination" = "Destination"
 }
 
 export enum TokenTypeEnum {

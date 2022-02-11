@@ -5,7 +5,10 @@
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
 
-  "function lock(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
-  "function burn(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
-  "function lockNative(address _to, uint256 _dstChain) public payable"
+  "function deposit() public",
+  "function refund() public",
+  "function processClaims() public",
+
+  "function getLPFee() public view returns (uint256)",
+  "function claim() public payable"
 ]

@@ -42,6 +42,7 @@ const StyledContainer = styled(Container)`
     width: 100vw;
     overflow-x: hidden;
   }
+  background-color: ${COLOR.blueGray};
 `
 
 const StyledMoblieInfoBox = styled.div`
@@ -62,6 +63,7 @@ const StyledForm = styled.div`
   background-color: ${COLOR.white};
   padding: 40px 80px;
   border-radius: 1em;
+  background-color: ${COLOR.lightGrey2};
   @media (max-width: 1199px) {
     padding: 40px;
   }
@@ -73,6 +75,7 @@ const StyledForm = styled.div`
 
 const StyledFormSection = styled.div`
   margin-bottom: 20px;
+  background-color: ${COLOR.lightGrey2};
 `
 
 const StyledMaxButton = styled.div`
@@ -168,8 +171,8 @@ const SendForm = ({
   const setGasFeeList = useSetRecoilState(SendStore.gasFeeList)
   // const feeDenom = useRecoilValue<AssetSymbolEnum>(SendStore.feeDenom)
   const setShuttleFee = useSetRecoilState(SendStore.shuttleFee)
-  const setAmountAfterShuttleFee = useSetRecoilState(
-    SendStore.amountAfterShuttleFee
+  const setAmountWithShuttleFee = useSetRecoilState(
+    SendStore.amountWithShuttleFee
   )
   const fromBlockChain = useRecoilValue(
     SendStore.fromBlockChain
@@ -266,7 +269,7 @@ const SendForm = ({
   const calcShuttleFee = async (): Promise<void> => {
     if (!asset) {
       setShuttleFee(new BigNumber(0))
-      setAmountAfterShuttleFee(new BigNumber(0))
+      setAmountWithShuttleFee(new BigNumber(0))
       return
     }
     else {
@@ -277,14 +280,14 @@ const SendForm = ({
           amount: sendAmount
         }).then((shuttleFee) => {
           setShuttleFee(shuttleFee)
-          const computedAmount = sendAmount.minus(shuttleFee.isLessThan(0)?0:shuttleFee)
-          setAmountAfterShuttleFee(
+          const computedAmount = sendAmount.plus(shuttleFee.isLessThan(0)?0:shuttleFee)
+          setAmountWithShuttleFee(
             computedAmount.isGreaterThan(0) ? computedAmount : new BigNumber(0)
           )
         })
       } else {
         setShuttleFee(new BigNumber(0))
-        setAmountAfterShuttleFee(new BigNumber(0))
+        setAmountWithShuttleFee(new BigNumber(0))
       }
     }
   }

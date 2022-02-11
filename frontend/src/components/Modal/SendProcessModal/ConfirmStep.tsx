@@ -74,7 +74,7 @@ const ConfirmStep = (): ReactElement => {
   // const tax = useRecoilValue(SendStore.tax)
   // const feeDenom = useRecoilValue<AssetNativeDenomEnum>(SendStore.feeDenom)
   const shuttleFee = useRecoilValue(SendStore.shuttleFee)
-  const amountAfterShuttleFee = useRecoilValue(SendStore.amountAfterShuttleFee)
+  const amountWithShuttleFee = useRecoilValue(SendStore.amountWithShuttleFee)
   const toBlockChainId = NETWORK.blockChainId[toBlockChain]
 
   return (
@@ -200,9 +200,9 @@ const ConfirmStep = (): ReactElement => {
         <StyledSecD>
             <div>
               <StyledSecDText
-                isError={amountAfterShuttleFee.isLessThanOrEqualTo(0)}
+                isError={amountWithShuttleFee.isLessThanOrEqualTo(0)}
               >
-                {` (estimated) ${formatBalance(amountAfterShuttleFee, asset?.decimal)}`}
+                {` (estimated) ${formatBalance(amountWithShuttleFee, asset?.decimal)}`}
                 <ExtLink
                   href={getScannerLink({
                     address: asset?asset.mapping?asset.mapping[toBlockChainId][1]:"" :"",

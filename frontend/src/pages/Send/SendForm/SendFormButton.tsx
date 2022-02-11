@@ -33,7 +33,7 @@ const SendFormButton = ({
     return loading ? (
       <CircularProgress size={20} style={{ color: COLOR.darkGray2 }} />
     ) : (
-      <>Allow the QuarkChain Bridge to use your {asset?.symbol}</>
+      <>Allow the Bridge to use your {asset?.symbol}</>
     )
   }
 

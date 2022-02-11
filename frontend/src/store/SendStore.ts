@@ -22,6 +22,18 @@ const memo = atom<string>({
   key: 'sendMemo',
   default: ''
 })
+const startTime = atom<number>({
+  key: 'sendStartTime',
+  default: 0
+})
+const endTime = atom<number>({
+  key: 'sendEndTime',
+  default: 0
+})
+const feeRampup = atom<number>({
+  key: 'sendFeeRampup',
+  default: 0
+})
 const fromBlockChain = atom<BlockChainType>({
   key: 'sendFromBlockChain',
   default: BlockChainType.optimism
@@ -49,7 +61,7 @@ const loginUserAssetList = atom<AssetType[]>({
 // Computed data from Send data Start
 const feeDenom = atom<AssetSymbolEnum>({
   key: 'sendFeeDenom',
-  default: AssetSymbolEnum.USDC
+  default: AssetSymbolEnum.Source
 })
 const gasFeeList = atom<{
   token: AssetSymbolEnum
@@ -70,8 +82,8 @@ const shuttleFee = atom<BigNumber>({
   key: 'sendShuttleFee',
   default: new BigNumber(0)
 })
-const amountAfterShuttleFee = atom<BigNumber>({
-  key: 'sendAmountAfterShuttleFee',
+const amountWithShuttleFee = atom<BigNumber>({
+  key: 'sendAmountWithShuttleFee',
   default: new BigNumber(0)
 })
 // Computed data from Send data End
@@ -85,6 +97,9 @@ export default {
   toBlockChain,
   fee,
   gasPrices,
+  startTime,
+  endTime,
+  feeRampup,
 
   loginUserAssetList,
   feeDenom,
@@ -92,5 +107,5 @@ export default {
   gasFee,
   tax,
   shuttleFee,
-  amountAfterShuttleFee
+  amountWithShuttleFee
 }
