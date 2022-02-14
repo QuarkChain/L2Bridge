@@ -72,7 +72,7 @@ contract L2BridgeSource {
     function refund(L2BridgeLib.TransferData memory transferData) public {
         bytes32 key = keccak256(abi.encode(transferData));
         require(transferStatus[key] == XFER_PENDING, "not pending");
-        require(transferData.expiration < block.timestamp, "not expire");
+        require(transferData.expiration > block.timestamp, "not expire");
 
         IERC20(transferData.srcTokenAddress).safeTransfer(
             transferData.destination,

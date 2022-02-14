@@ -6,7 +6,7 @@ async function main() {
   const network = await provider.getNetwork();
   const chainId = network.chainId;
 
-  if (config[chainId].bridge){
+  if (config[chainId].bridge) {
     //verify L1Bridge
     await hre.run("verify:verify", {
       address: config[chainId].bridge,
@@ -25,12 +25,12 @@ async function main() {
     await hre.run("verify:verify", {
       address: config[chainId].tokenSrc,
       constructorArguments: config[chainId].tokenSrcArgs,
-      contract: "contracts/TestERC20.sol:TestERC20WithName"
+      contract: "contracts/TestERC20.sol:TestERC20WithName",
     });
     await hre.run("verify:verify", {
       address: config[chainId].tokenDest,
       constructorArguments: config[chainId].tokenDestArgs,
-      contract: "contracts/TestERC20.sol:TestERC20WithName"
+      contract: "contracts/TestERC20.sol:TestERC20WithName",
     });
   }
 }

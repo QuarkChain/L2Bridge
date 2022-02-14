@@ -9,11 +9,11 @@ async function main() {
   const cfg = require("../deployments.json");
 
   const Token = await ethers.getContractFactory("TestERC20WithName");
-  const tokenSrcArgs = ['Source']
+  const tokenSrcArgs = ["Source"];
   const tokenSrc = await Token.deploy(...tokenSrcArgs);
   const tokenSrcAddress = await tokenSrc.address;
   console.log("TokenSource deployed to:", tokenSrcAddress);
-  const tokenDestArgs = ['Destination']
+  const tokenDestArgs = ["Destination"];
   const tokenDest = await Token.deploy(...tokenDestArgs);
   const tokenDestAddress = await tokenDest.address;
   console.log("TokenDestination deployed to:", tokenDestAddress);

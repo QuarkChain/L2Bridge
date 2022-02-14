@@ -149,13 +149,13 @@ const RefreshButton = (): ReactElement => {
 }
 
 const SendForm = ({
-                    onClickSendButton
-                  }: {
+  onClickSendButton
+}: {
   onClickSendButton: () => Promise<void>
 }): ReactElement => {
   const loginUser = useRecoilValue(AuthStore.loginUser)
   const isLoggedIn = useRecoilValue(AuthStore.isLoggedIn)
-  const { switchOrAddNetwork} = useAuth()
+  const { switchOrAddNetwork } = useAuth()
 
   const status = useRecoilValue(SendProcessStore.sendProcessStatus)
 
@@ -163,6 +163,7 @@ const SendForm = ({
   const asset = useRecoilValue(SendStore.asset)
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [amount, setAmount] = useRecoilState(SendStore.amount)
+  const [period, setPeriod] = useRecoilState(SendStore.period)
   const setStartTime = useSetRecoilState(SendStore.startTime)
   const setEndTime = useSetRecoilState(SendStore.endTime)
   const setFeeRampup = useSetRecoilState(SendStore.feeRampup)
@@ -185,6 +186,7 @@ const SendForm = ({
     isValid: false
   })
   const [inputAmount, setInputAmount] = useState('')
+  const [inputPeriod, setInputPeriod] = useState('')
   const [notAllowed, setNotAllowed] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setloading] = useState(false)
@@ -208,12 +210,12 @@ const SendForm = ({
       setloading(true)
 
       try {
-          const receipt = await waitForEtherBaseTransaction({
-            hash: submitResult.hash,
-          })
-          console.log('receipt', receipt)
-          setloading(false)
-          setNotAllowed(false)
+        const receipt = await waitForEtherBaseTransaction({
+          hash: submitResult.hash,
+        })
+        console.log('receipt', receipt)
+        setloading(false)
+        setNotAllowed(false)
 
       } catch (error) {
         setErrorMessage(_.toString(error))
@@ -243,6 +245,19 @@ const SendForm = ({
       setAmount(new BigNumber(value).times(decimalExp).toString(10))
       setNotAllowed(new BigNumber(value).times(decimalExp).isGreaterThan(asset?.allowance || value))
       calcShuttleFee()
+    }
+  }
+
+  const onChangePeriod = ({ value }: { value: string }): void => {
+    if (_.isEmpty(value)) {
+      setInputPeriod('')
+      setPeriod(0)
+      return
+    }
+
+    if (false === _.isNaN(_.toNumber(value))) {
+      setInputPeriod(value)
+      setPeriod(new BigNumber(value,10).toNumber())
     }
   }
 
@@ -283,7 +298,7 @@ const SendForm = ({
           amount: sendAmount
         }).then((shuttleFee) => {
           setShuttleFee(shuttleFee)
-          const computedAmount = sendAmount.plus(shuttleFee.isLessThan(0)?0:shuttleFee)
+          const computedAmount = sendAmount.plus(shuttleFee.isLessThan(0) ? 0 : shuttleFee)
           setAmountWithShuttleFee(
             computedAmount.isGreaterThan(0) ? computedAmount : new BigNumber(0)
           )
@@ -312,6 +327,10 @@ const SendForm = ({
         setGasFeeList(qkcFeeList)
       }
       calcShuttleFee()
+      setStartTime(new Date().getTime())
+      setPeriod(period)
+      setEndTime(new Date().getTime() + period * 1000)
+      setFeeRampup(period * 1000)
     }
   }, 300)
 
@@ -321,7 +340,7 @@ const SendForm = ({
     return (): void => {
       dbcGetFeeInfoWithValidation.cancel()
     }
-  }, [amount, toAddress, toBlockChain, asset?.tokenAddress])
+  }, [amount, period, toAddress, toBlockChain, asset?.tokenAddress])
 
   useEffect(() => {
     getAssetList()
@@ -331,13 +350,14 @@ const SendForm = ({
 
   useEffect(() => {
     onChangeAmount({ value: inputAmount })
+    onChangePeriod({ value: inputPeriod })
     getAssetList().then((): void => {
       dbcGetFeeInfoWithValidation.callback()
     })
     setToAddress(loginUser.address)
     setStartTime(new Date().getTime())
-    setEndTime(new Date().getTime()+86400000)
-    setFeeRampup(86400000)
+    setEndTime(new Date().getTime() + period * 1000)
+    setFeeRampup(period * 1000)
   }, [
     // to check decimal length by network
     loginUser,
@@ -492,6 +512,20 @@ const SendForm = ({
             </StyledFormSection>
 
             <StyledFormSection>
+              <FormLabel title={'Expire Period/Fee Rampup'} />
+              <div style={{ position: 'relative' }}>
+                <FormInput
+                  type={'number'}
+                  value={inputPeriod}
+                  onChange={({ target: { value } }): void => {
+                    onChangePeriod({ value })
+                  }}
+                  placeholder={'0'}
+                />
+              </div>
+            </StyledFormSection>
+
+            <StyledFormSection>
               <FormLabel title={'Destination'} />
               <FormInput
                 onChange={({ target: { value } }): void => {
@@ -512,16 +546,16 @@ const SendForm = ({
             />
 
             <SendFormButton
-              onClickSendButton={notAllowed? onClickApproveButton:onClickSendButton}
+              onClickSendButton={notAllowed ? onClickApproveButton : onClickSendButton}
               validationResult={validationResult}
               feeValidationResult={feeValidationResult}
               notAllowed={notAllowed}
               loading={loading}
             />
 
-          <div style={{ textAlign: 'center' }}>
-          <FormErrorMessage errorMessage={errorMessage} />
-          </div>
+            <div style={{ textAlign: 'center' }}>
+              <FormErrorMessage errorMessage={errorMessage} />
+            </div>
 
           </StyledForm>
         </Col>

@@ -3,6 +3,7 @@ import { Col, Row } from 'react-bootstrap'
 import styled from 'styled-components'
 import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil'
 // import _ from 'lodash'
+import BigNumber from 'bignumber.js'
 
 import { COLOR, NETWORK } from 'consts'
 
@@ -228,7 +229,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${(feeRampup / 1000 / 60 / 60)} Hours`}
+                      {`${(new BigNumber(feeRampup).div(100*60*60).integerValue().div(10).toString())} Hours`}
                     </Text>
                   </Col>
                 </Row>

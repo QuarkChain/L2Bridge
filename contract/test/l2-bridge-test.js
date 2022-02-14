@@ -33,12 +33,11 @@ describe("L2Bridge", function () {
   });
 
   it("simple l2bridge deposit/expire test", async function () {
-    xferData.expiration = 0;
     await bridgeSrc.deposit(xferData);
     await bridgeSrc.refund(xferData);
     expect(await tokenSrc.balanceOf(acc1.address)).to.equal(1000);
 
-    xferData.expiration = 100000000000;
+    xferData.expiration = 0;
     await bridgeSrc.deposit(xferData);
     await expect(bridgeSrc.refund(xferData)).to.be.revertedWith("not expire");
     expect(await tokenSrc.balanceOf(acc0.address)).to.equal(8000);

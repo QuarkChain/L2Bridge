@@ -116,11 +116,12 @@ const useSend = (): UseSendType => {
 
       try {
         let tx
-        let para = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
-        console.log('para', JSON.stringify(para))
-        tx = withSigner.deposit(para)
+        let pa = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
+        let para = JSON.stringify(pa)
+        console.log('para:', para)
+        tx = withSigner.deposit(pa)
         const { hash } = await tx
-        return { success: true, hash }
+        return { success: true, hash, para }
       } catch (error) {
         return handleTxErrorFromEtherBase(error)
       }

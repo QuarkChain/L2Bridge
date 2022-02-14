@@ -5,6 +5,7 @@ export type RequestTxResultType =
   | {
       success: true
       hash: string
+      para?: string
     }
   | {
       success: false
