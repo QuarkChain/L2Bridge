@@ -163,6 +163,9 @@ const SendForm = ({
   const asset = useRecoilValue(SendStore.asset)
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [amount, setAmount] = useRecoilState(SendStore.amount)
+  const setStartTime = useSetRecoilState(SendStore.startTime)
+  const setEndTime = useSetRecoilState(SendStore.endTime)
+  const setFeeRampup = useSetRecoilState(SendStore.feeRampup)
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
   const [toBlockChain, setToBlockChain] = useRecoilState(SendStore.toBlockChain)
 
@@ -332,6 +335,9 @@ const SendForm = ({
       dbcGetFeeInfoWithValidation.callback()
     })
     setToAddress(loginUser.address)
+    setStartTime(new Date().getTime())
+    setEndTime(new Date().getTime()+86400000)
+    setFeeRampup(86400000)
   }, [
     // to check decimal length by network
     loginUser,

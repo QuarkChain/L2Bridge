@@ -11,7 +11,8 @@ const assetList: AssetType[] = [
     loguURI: ethpng,
     tokenAddress: '',
     type: TokenTypeEnum.Canonical,
-    id: 'ethereum'
+    id: 'src',
+    mapping: {}
   },
   {
     symbol: AssetSymbolEnum.Destination,
@@ -19,7 +20,8 @@ const assetList: AssetType[] = [
     loguURI: ethpng,
     tokenAddress: '',
     type: TokenTypeEnum.Canonical,
-    id: 'ethereum'
+    id: 'dst',
+    mapping: {}
   }
 ]
 export default {

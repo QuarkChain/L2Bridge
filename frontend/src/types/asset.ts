@@ -21,7 +21,7 @@ export type AssetType = {
   allowance?: string
   disabled?: boolean
   decimal?: string
-  mapping?: Record<string, string>
+  mapping: Record<string, string>
 }
 
 export type WhiteListItemType = {

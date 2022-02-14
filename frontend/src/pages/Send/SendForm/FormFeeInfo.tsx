@@ -190,7 +190,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${new Date(startTime).toUTCString()}`}
+                      {`${new Date(startTime).toLocaleString()}`}
                     </Text>
                   </Col>
                 </Row>
@@ -209,7 +209,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${new Date(endTime).toUTCString()}`}
+                      {`${new Date(endTime).toLocaleString()}`}
                     </Text>
                   </Col>
                 </Row>

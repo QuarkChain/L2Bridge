@@ -6,7 +6,7 @@ import NetworkStore from 'store/NetworkStore'
 import SendStore from 'store/SendStore'
 import { NETWORK } from 'consts'
 
-import { AssetSymbolEnum, TokenTypeEnum } from 'types/asset'
+import { AssetSymbolEnum} from 'types/asset'
 import { EtherBaseReceiptResultType, RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
 
@@ -42,6 +42,10 @@ const useSend = (): UseSendType => {
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
   const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
+  const shuttleFee = useRecoilValue(SendStore.shuttleFee)
+  const startTime = useRecoilValue(SendStore.startTime)
+  const endTime = useRecoilValue(SendStore.endTime)
+  const feeRampup = useRecoilValue(SendStore.feeRampup)
   const setFee = useSetRecoilState(SendStore.fee)
 
   const { getEtherBaseContract } = useEtherBaseContract()
@@ -112,19 +116,9 @@ const useSend = (): UseSendType => {
 
       try {
         let tx
-        if (asset.type === TokenTypeEnum.Wrapped) {
-          console.log('Wrapped')
-          tx= withSigner.burn(asset.tokenAddress, toAddress, sendAmount, blockChainId[toBlockChain])
-        } else if (asset.type === TokenTypeEnum.Native) {
-          console.log('Native')
-          const overrides = {
-            value: sendAmount
-          }
-          tx= withSigner.lockNative(toAddress, blockChainId[toBlockChain], overrides)
-        } else {
-          console.log('ERC20')
-          tx= withSigner.lock(asset.tokenAddress, toAddress, sendAmount, blockChainId[toBlockChain])
-        }
+        let para = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
+        console.log('para', JSON.stringify(para))
+        tx = withSigner.deposit(para)
         const { hash } = await tx
         return { success: true, hash }
       } catch (error) {

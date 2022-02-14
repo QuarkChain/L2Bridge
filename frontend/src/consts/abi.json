@@ -5,8 +5,8 @@
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
 
-  "function deposit() public",
-  "function refund() public",
+  "function deposit(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public",
+  "function refund(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public",
   "function processClaims() public",
 
   "function getLPFee() public view returns (uint256)",

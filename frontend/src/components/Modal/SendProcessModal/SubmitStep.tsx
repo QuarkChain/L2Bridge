@@ -24,7 +24,7 @@ import useSend from 'hooks/useSend'
 import useNetwork from 'hooks/useNetwork'
 // import useTerraTxInfo from 'hooks/useTerraTxInfo'
 import { ModalProps } from '..'
-import { TokenTypeEnum } from 'types/asset'
+// import { TokenTypeEnum } from 'types/asset'
 
 const StyledContainer = styled.div`
   padding: 0;
@@ -221,7 +221,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
         >
           <div>
             <Text style={{ color: COLOR.skyGray, marginBottom: 5 }}>
-              {asset?.type === TokenTypeEnum.Wrapped?"Burn":"Lock"} Tx
+              Deposit Tx
             </Text>
           </div>
           <ExtLink
@@ -239,7 +239,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
               marginTop: 20,
             }}
           >
-          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for the ${NETWORK.blockChainParam[toBlockChain].chainName} to process your request`}
+          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for someone on ${NETWORK.blockChainParam[toBlockChain].chainName} to buy your token`}
           </StyledInfoText>
         </div>
       )}
