@@ -18,6 +18,11 @@ const amount = atom<string>({
   key: 'sendAmount',
   default: ''
 })
+const data = atom<string>({
+  key: 'sendData',
+  default: ''
+})
+
 const period = atom<number>({
   key: 'sendPeriod',
   default: 0
@@ -97,6 +102,7 @@ export default {
   toAddress,
   amount,
   period,
+  data,
   memo,
   fromBlockChain,
   toBlockChain,

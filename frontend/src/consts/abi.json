@@ -9,6 +9,5 @@
   "function refund(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public",
   "function processClaims() public",
 
-  "function getLPFee() public view returns (uint256)",
-  "function claim() public payable"
+  "function claim(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public payable"
 ]

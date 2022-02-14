@@ -24,6 +24,7 @@ import useSend from 'hooks/useSend'
 import useNetwork from 'hooks/useNetwork'
 // import useTerraTxInfo from 'hooks/useTerraTxInfo'
 import { ModalProps } from '..'
+import { TokenTypeEnum } from 'types/asset'
 // import { TokenTypeEnum } from 'types/asset'
 
 const StyledContainer = styled.div`
@@ -147,9 +148,10 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
   return (
     <StyledContainer>
       <div>
+        {asset?.type === TokenTypeEnum.Source && (
         <StyledInfoText>
           {`Transferring ${asset?.symbol} from ${NETWORK.blockChainName[fromBlockChain]} Network to ${NETWORK.blockChainName[toBlockChain]} Network.\nTransaction will be submitted via ${loginUser.walletType}`}
-        </StyledInfoText>
+        </StyledInfoText>)}
         {loginUser.walletType === WalletEnum.WalletConnect && loading && (
           <FormErrorMessage
             style={{
@@ -182,6 +184,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
               {formatBalance(displayAmount, asset?.decimal)} {asset?.symbol}
             </Text>
           </div>
+          {asset?.type === TokenTypeEnum.Source && (
               <div style={{ fontSize: 12 }}>
                 <StyledAmountText
                   isError={amountWithShuttleFee.isLessThanOrEqualTo(0)}
@@ -192,6 +195,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
                   )} ${asset?.symbol}`}
                 </StyledAmountText>
               </div>
+          )}
         </div>
       </div>
 
@@ -221,7 +225,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
         >
           <div>
             <Text style={{ color: COLOR.skyGray, marginBottom: 5 }}>
-              Deposit Tx
+              {asset?.type === TokenTypeEnum.Source? 'Deposit': 'Claim'} Tx
             </Text>
           </div>
           <ExtLink
@@ -239,7 +243,14 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
               marginTop: 20,
             }}
           >
-          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for someone on ${NETWORK.blockChainParam[toBlockChain].chainName} to buy your token`}
+          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for someone on ${NETWORK.blockChainParam[toBlockChain].chainName} to buy your token.`}
+          </StyledInfoText>
+          <StyledInfoText
+            style={{
+              wordBreak: 'break-all',
+            }}
+          >
+          {asset?.type === TokenTypeEnum.Source && (`The transfer data is:\n` + requestTxResult.para)}
           </StyledInfoText>
         </div>
       )}

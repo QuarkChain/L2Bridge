@@ -191,7 +191,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${new Date(startTime).toLocaleString()}`}
+                      {`${new Date(startTime * 1000).toLocaleString()}`}
                     </Text>
                   </Col>
                 </Row>
@@ -210,7 +210,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${new Date(endTime).toLocaleString()}`}
+                      {`${new Date(endTime * 1000).toLocaleString()}`}
                     </Text>
                   </Col>
                 </Row>
@@ -229,7 +229,7 @@ const FormFeeInfo = ({
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>
                     <Text style={{ opacity: '0.8' }}>
-                      {`${(new BigNumber(feeRampup).div(100*60*60).integerValue().div(10).toString())} Hours`}
+                      {`${(new BigNumber(feeRampup).div(6*60).integerValue().div(10).toString())} Hours`}
                     </Text>
                   </Col>
                 </Row>
@@ -243,7 +243,7 @@ const FormFeeInfo = ({
                 >
                   <Col style={{ padding: 0 }}>
                     <Text style={{ paddingRight: 10, color: COLOR.skyGray }}>
-                      Bridge fee
+                      Bridge fee(0.05%)
                     </Text>
                   </Col>
                   <Col style={{ textAlign: 'right', padding: 0 }}>

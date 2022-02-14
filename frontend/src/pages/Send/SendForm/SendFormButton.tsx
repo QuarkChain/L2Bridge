@@ -9,6 +9,7 @@ import useSelectWallet from 'hooks/useSelectWallet'
 
 import AuthStore from 'store/AuthStore'
 import SendStore from 'store/SendStore'
+import { TokenTypeEnum } from 'types/asset'
 
 const SendFormButton = ({
   validationResult,
@@ -38,7 +39,7 @@ const SendFormButton = ({
   }
 
   return isLoggedIn ? (
-    <Button onClick={onClickSendButton} disabled={!ableButton || loading}>
+    <Button onClick={onClickSendButton} disabled={asset?.type === TokenTypeEnum.Source && (!ableButton || loading)}>
       {notAllowed ? (
         <IfLoadingText />) : "Next"}
     </Button>

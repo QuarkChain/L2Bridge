@@ -33,6 +33,7 @@ import SendFormButton from './SendFormButton'
 import FormFeeInfo from './FormFeeInfo'
 import useSelectWallet from 'hooks/useSelectWallet'
 import useToken from 'hooks/useToken'
+import { TokenTypeEnum } from 'types/asset'
 
 const StyledContainer = styled(Container)`
   padding: 40px 0;
@@ -164,6 +165,7 @@ const SendForm = ({
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [amount, setAmount] = useRecoilState(SendStore.amount)
   const [period, setPeriod] = useRecoilState(SendStore.period)
+  const setData = useSetRecoilState(SendStore.data)
   const setStartTime = useSetRecoilState(SendStore.startTime)
   const setEndTime = useSetRecoilState(SendStore.endTime)
   const setFeeRampup = useSetRecoilState(SendStore.feeRampup)
@@ -187,6 +189,7 @@ const SendForm = ({
   })
   const [inputAmount, setInputAmount] = useState('')
   const [inputPeriod, setInputPeriod] = useState('')
+  const [inputData, setInputData] = useState('')
   const [notAllowed, setNotAllowed] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setloading] = useState(false)
@@ -261,6 +264,18 @@ const SendForm = ({
     }
   }
 
+  const onChangeData = ({ value }: { value: string }): void => {
+    if (_.isEmpty(value)) {
+      setInputData('')
+      setData('')
+      return
+    }
+
+    setInputData(value)
+    setData(value)
+  }
+
+
   const onClickApproveButton = async (): Promise<void> => {
     setErrorMessage('')
     setloading(true)
@@ -327,10 +342,10 @@ const SendForm = ({
         setGasFeeList(qkcFeeList)
       }
       calcShuttleFee()
-      setStartTime(new Date().getTime())
+      setStartTime(Math.floor(Date.now()/1000))
       setPeriod(period)
-      setEndTime(new Date().getTime() + period * 1000)
-      setFeeRampup(period * 1000)
+      setEndTime(Math.floor(Date.now()/1000) + period)
+      setFeeRampup(period)
     }
   }, 300)
 
@@ -355,9 +370,9 @@ const SendForm = ({
       dbcGetFeeInfoWithValidation.callback()
     })
     setToAddress(loginUser.address)
-    setStartTime(new Date().getTime())
-    setEndTime(new Date().getTime() + period * 1000)
-    setFeeRampup(period * 1000)
+    setStartTime(Math.floor(Date.now()/1000))
+    setEndTime(Math.floor(Date.now()/1000) + period)
+    setFeeRampup(period)
   }, [
     // to check decimal length by network
     loginUser,
@@ -488,6 +503,7 @@ const SendForm = ({
               </Row>
             </StyledFormSection>
 
+            {asset?.type === TokenTypeEnum.Source && (
             <StyledFormSection>
               <FormLabel title={'Amount'} />
               <div style={{ position: 'relative' }}>
@@ -509,10 +525,8 @@ const SendForm = ({
                   errorMessage={validationResult.errorMessage?.amount}
                 />
               )}
-            </StyledFormSection>
 
-            <StyledFormSection>
-              <FormLabel title={'Expire Period/Fee Rampup'} />
+              <FormLabel title={'Expire Period(sec)'} />
               <div style={{ position: 'relative' }}>
                 <FormInput
                   type={'number'}
@@ -523,9 +537,7 @@ const SendForm = ({
                   placeholder={'0'}
                 />
               </div>
-            </StyledFormSection>
 
-            <StyledFormSection>
               <FormLabel title={'Destination'} />
               <FormInput
                 onChange={({ target: { value } }): void => {
@@ -538,6 +550,21 @@ const SendForm = ({
                 errorMessage={validationResult.errorMessage?.toAddress}
               />
             </StyledFormSection>
+            )}
+
+            {asset?.type === TokenTypeEnum.Destination && (
+            <StyledFormSection>
+              <FormLabel title={'Transfer Data'} />
+              <FormInput
+                type={'string'}
+                value={inputData}
+                onChange={({ target: { value } }): void => {
+                  onChangeData({ value })
+                }}
+                placeholder={"Transfer Data Tuple"}
+              />
+            </StyledFormSection>
+            )}
 
             {/* only if from qkc */}
             <FormFeeInfo

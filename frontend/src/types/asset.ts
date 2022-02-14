@@ -5,8 +5,8 @@ export enum AssetSymbolEnum {
 
 export enum TokenTypeEnum {
   Native,
-  Canonical,
-  Wrapped
+  Source,
+  Destination
 }
 
 export type AssetType = {

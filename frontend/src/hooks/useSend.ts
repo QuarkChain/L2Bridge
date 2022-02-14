@@ -6,7 +6,7 @@ import NetworkStore from 'store/NetworkStore'
 import SendStore from 'store/SendStore'
 import { NETWORK } from 'consts'
 
-import { AssetSymbolEnum} from 'types/asset'
+import { AssetSymbolEnum, TokenTypeEnum} from 'types/asset'
 import { EtherBaseReceiptResultType, RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
 
@@ -40,6 +40,7 @@ const useSend = (): UseSendType => {
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [sendAmount, setSendAmount] = useRecoilState(SendStore.amount)
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
+  const [sendData, setSendData] = useRecoilState(SendStore.data)
   const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
   const shuttleFee = useRecoilValue(SendStore.shuttleFee)
@@ -54,6 +55,7 @@ const useSend = (): UseSendType => {
     setAsset(undefined)
     setToAddress('')
     setSendAmount('')
+    setSendData('')
     setFee(0)
   }
 
@@ -115,13 +117,22 @@ const useSend = (): UseSendType => {
       const withSigner = contract.connect(signer)
 
       try {
-        let tx
-        let pa = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
-        let para = JSON.stringify(pa)
-        console.log('para:', para)
-        tx = withSigner.deposit(pa)
-        const { hash } = await tx
-        return { success: true, hash, para }
+        if (asset.type === TokenTypeEnum.Source) {
+          let tx
+          let pa = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
+          let para = JSON.stringify(pa)
+          console.log('para:', para)
+          tx = withSigner.deposit(pa)
+          const { hash } = await tx
+          return { success: true, hash, para }
+        } else {
+          let tx
+          let para = JSON.parse(sendData)
+          console.log('para:', para)
+          tx = withSigner.claim(para)
+          const { hash } = await tx
+          return { success: true, hash, para }
+        }
       } catch (error) {
         return handleTxErrorFromEtherBase(error)
       }

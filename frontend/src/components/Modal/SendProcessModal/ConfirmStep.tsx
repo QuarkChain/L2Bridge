@@ -18,6 +18,7 @@ import useAsset from 'hooks/useAsset'
 import AuthStore from '../../../store/AuthStore'
 import useNetwork from '../../../hooks/useNetwork'
 import ExtLink from '../../ExtLink'
+import { TokenTypeEnum } from 'types/asset'
 // import { AssetNativeDenomEnum } from 'types/asset'
 
 const StyledContainer = styled.div`
@@ -127,6 +128,8 @@ const ConfirmStep = (): ReactElement => {
         </Row>
       </StyledFromToBlockChainBox>
 
+      {asset?.type === TokenTypeEnum.Source && (
+      <div>
       <StyledSection>
         <StyledSecH>Asset</StyledSecH>
         <StyledSecD>
@@ -216,6 +219,8 @@ const ConfirmStep = (): ReactElement => {
             </div>
         </StyledSecD>
       </StyledSection>
+      </div>
+      )}
       <br />
       <Button
         onClick={(): void => {

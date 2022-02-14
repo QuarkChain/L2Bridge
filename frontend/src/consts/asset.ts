@@ -10,7 +10,7 @@ const assetList: AssetType[] = [
     name: 'Source Token',
     loguURI: ethpng,
     tokenAddress: '',
-    type: TokenTypeEnum.Canonical,
+    type: TokenTypeEnum.Source,
     id: 'src',
     mapping: {}
   },
@@ -19,7 +19,7 @@ const assetList: AssetType[] = [
     name: 'Destination Token',
     loguURI: ethpng,
     tokenAddress: '',
-    type: TokenTypeEnum.Canonical,
+    type: TokenTypeEnum.Destination,
     id: 'dst',
     mapping: {}
   }
