@@ -90,18 +90,6 @@ lerna-debug.log
 .DS_Store
 Thumbs.db
 
-
-node_modules
-.env
-
 #Hardhat files
 cache
 artifacts
-
-node_modules
-.env
-
-#Hardhat files
-cache
-artifacts
-bin

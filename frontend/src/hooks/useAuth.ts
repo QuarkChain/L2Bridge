@@ -20,12 +20,12 @@ const useAuth = (): {
   const setEtherBaseExt = useSetRecoilState(NetworkStore.etherBaseExt)
   // const setTerraExt = useSetRecoilState(NetworkStore.terraExt)
   // const setTerraLocal = useSetRecoilState(NetworkStore.terraLocal)
-  const setIsVisibleNotSupportNetworkModal = useSetRecoilState(
-    NetworkStore.isVisibleNotSupportNetworkModal
-  )
-  const setTriedNotSupportNetwork = useSetRecoilState(
-    NetworkStore.triedNotSupportNetwork
-  )
+  // const setIsVisibleNotSupportNetworkModal = useSetRecoilState(
+  //   NetworkStore.isVisibleNotSupportNetworkModal
+  // )
+  // const setTriedNotSupportNetwork = useSetRecoilState(
+  //   NetworkStore.triedNotSupportNetwork
+  // )
 
   const setFromBlockChain = useSetRecoilState(
     SendStore.fromBlockChain
@@ -51,11 +51,6 @@ const useAuth = (): {
     if (network && isValidEtherNetwork) {
         setFromBlockChain(chainIdToNetwork[network.chainId])
         setEtherBaseExt(network)
-    } else {
-      setIsVisibleNotSupportNetworkModal(true)
-      setTriedNotSupportNetwork(network)
-      await switchOrAddNetwork(BlockChainType.qkcdev)
-      return
     }
     // DON'T MOVE
     // set user have to be after set network info

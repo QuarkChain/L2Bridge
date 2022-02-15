@@ -1,24 +1,12 @@
 export enum AssetSymbolEnum {
-  "USDT" = "USDT",
-  "USDC" = "USDC",
-  "BTCB" = "BTCB",
-  "WBNB" = "WBNB",
-  "ETH" = "ETH",
-  "BNB" = "BNB",
-  "BUSD" = "BUSD",
-  "DL" = "DL",
-  "KKK" = "KKK",
-  "SMTY" = "SMTY",
-  "PM" = "PM",
-  "QI" = "QI",
-  "QKC" = "QKC",
-  "WQKC" = "WQKC",
+  "Source" = "Source",
+  "Destination" = "Destination"
 }
 
 export enum TokenTypeEnum {
   Native,
-  Canonical,
-  Wrapped
+  Source,
+  Destination
 }
 
 export type AssetType = {
@@ -33,7 +21,7 @@ export type AssetType = {
   allowance?: string
   disabled?: boolean
   decimal?: string
-  mapping?: Record<string, string>
+  mapping: Record<string, string>
 }
 
 export type WhiteListItemType = {

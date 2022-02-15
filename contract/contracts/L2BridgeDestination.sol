@@ -10,12 +10,22 @@ contract L2BridgeDestination {
     using SafeERC20 for IERC20;
 
     uint256 public transferCount;
+    uint256 public GAP;
     mapping(bytes32 => bool) public claimedTransferHashes;
 
     bytes32 public rewardHashOnion;
     bytes32[] rewardHashOnionHistoryList;
 
-    constructor() {}
+    event Claim(
+        bytes32 transferDataHash,
+        address claimer,
+        address srcTokenAddress,
+        uint256 amount
+    );
+
+    constructor(uint256 _gap) {
+        GAP = _gap;
+    }
 
     function getLPFee(L2BridgeLib.TransferData memory transferData)
         public
@@ -55,6 +65,8 @@ contract L2BridgeDestination {
             amount
         );
 
+        emit Claim(key, msg.sender, transferData.srcTokenAddress, transferData.amount);
+
         // construct reward data and append it to onion
         L2BridgeLib.RewardData memory rewardData = L2BridgeLib.RewardData({
             transferDataHash: key,
@@ -68,8 +80,8 @@ contract L2BridgeDestination {
         );
         transferCount++;
 
-        // save to history per 100 transfers
-        if (transferCount % 100 == 0) {
+        // save to history per GAP transfers
+        if (transferCount % GAP == 0) {
             rewardHashOnionHistoryList.push(rewardHashOnion);
         }
     }
@@ -86,7 +98,7 @@ contract L2BridgeDestination {
             return (count, rewardHashOnion);
         }
 
-        require(count % 100 == 0, "hash not found");
-        return (count, rewardHashOnionHistoryList[count / 100]);
+        require(count % GAP == 0, "hash not found");
+        return (count, rewardHashOnionHistoryList[count / GAP]);
     }
 }

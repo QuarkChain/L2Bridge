@@ -14,9 +14,9 @@ const red ="#FF5561"
 
 const primary = terraSky
 const text = black
-const appBg = lightGrey
-const footerBg = lightGrey
-const headerBg = white
+const appBg = blueGray
+const footerBg = blueGray
+const headerBg = blueGray
 
 export default {
   white,

@@ -6,8 +6,7 @@ import NetworkStore from 'store/NetworkStore'
 import SendStore from 'store/SendStore'
 import { NETWORK } from 'consts'
 
-import { BlockChainType } from 'types/network'
-import { AssetSymbolEnum, TokenTypeEnum } from 'types/asset'
+import { AssetSymbolEnum, TokenTypeEnum} from 'types/asset'
 import { EtherBaseReceiptResultType, RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
 
@@ -41,8 +40,13 @@ const useSend = (): UseSendType => {
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [sendAmount, setSendAmount] = useRecoilState(SendStore.amount)
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
-  const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
+  const [sendData, setSendData] = useRecoilState(SendStore.data)
+  // const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
+  const shuttleFee = useRecoilValue(SendStore.shuttleFee)
+  const startTime = useRecoilValue(SendStore.startTime)
+  const endTime = useRecoilValue(SendStore.endTime)
+  const feeRampup = useRecoilValue(SendStore.feeRampup)
   const setFee = useSetRecoilState(SendStore.fee)
 
   const { getEtherBaseContract } = useEtherBaseContract()
@@ -51,6 +55,7 @@ const useSend = (): UseSendType => {
     setAsset(undefined)
     setToAddress('')
     setSendAmount('')
+    setSendData('')
     setFee(0)
   }
 
@@ -58,7 +63,7 @@ const useSend = (): UseSendType => {
     token: AssetSymbolEnum
     fee?: Number
   }[]> => {
-    if (fromBlockChain === BlockChainType.qkc && etherBaseExt) {
+    if (etherBaseExt) {
       return Promise.all(
         _.map(AssetSymbolEnum, async (token) => {
           try {
@@ -104,7 +109,7 @@ const useSend = (): UseSendType => {
         success: false,
       }
     }
-    const bridgeAddress = shuttleAddress[fromBlockChain]
+    const bridgeAddress = shuttleAddress[asset.type === TokenTypeEnum.Source ? 'source': 'destination']
     const contract = getEtherBaseContract({ contract: bridgeAddress })
 
     if (contract && loginUser.provider) {
@@ -112,22 +117,22 @@ const useSend = (): UseSendType => {
       const withSigner = contract.connect(signer)
 
       try {
-        let tx
-        if (asset.type === TokenTypeEnum.Wrapped) {
-          console.log('Wrapped')
-          tx= withSigner.burn(asset.tokenAddress, toAddress, sendAmount, blockChainId[toBlockChain])
-        } else if (asset.type === TokenTypeEnum.Native) {
-          console.log('Native')
-          const overrides = {
-            value: sendAmount
-          }
-          tx= withSigner.lockNative(toAddress, blockChainId[toBlockChain], overrides)
+        if (asset.type === TokenTypeEnum.Source) {
+          let tx
+          let pa = [asset.tokenAddress, asset?.mapping[blockChainId[toBlockChain]][1], toAddress, sendAmount, shuttleFee.toString(), startTime, feeRampup, endTime]
+          let para = JSON.stringify(pa)
+          console.log('para:', para)
+          tx = withSigner.deposit(pa)
+          const { hash } = await tx
+          return { success: true, hash, para }
         } else {
-          console.log('ERC20')
-          tx= withSigner.lock(asset.tokenAddress, toAddress, sendAmount, blockChainId[toBlockChain])
+          let tx
+          let para = JSON.parse(sendData)
+          console.log('para:', para)
+          tx = withSigner.claim(para)
+          const { hash } = await tx
+          return { success: true, hash, para }
         }
-        const { hash } = await tx
-        return { success: true, hash }
       } catch (error) {
         return handleTxErrorFromEtherBase(error)
       }

@@ -1,143 +1,59 @@
 import { BlockChainType, BlockChainParaType } from 'types/network'
-import BinanceChainPng from 'images/BinanceChain.png'
-import EthereumPng from 'images/Ethereum.png'
-import QuarkChainPng from 'images/QuarkChain.png'
+import OPPng from 'images/OP.png'
+import ARBSVG from 'images/ARB.svg'
 
 const blockChainImage: Record<BlockChainType, string> = {
-  [BlockChainType.bsc]: BinanceChainPng,
-  [BlockChainType.bsctest]: BinanceChainPng,
-  [BlockChainType.qkc]: QuarkChainPng,
-  [BlockChainType.qkcdev]: QuarkChainPng,
-  [BlockChainType.ethereum]: EthereumPng,
-  [BlockChainType.rinkeby]: EthereumPng,
-  [BlockChainType.ropsten]: EthereumPng,
+  [BlockChainType.optimism]: OPPng,
+  [BlockChainType.arbitrum]: ARBSVG,
 }
 
 const blockChainName: Record<BlockChainType, string> = {
-  [BlockChainType.bsc]: 'BSC',
-  [BlockChainType.bsctest]: 'BSCTEST',
-  [BlockChainType.qkc]: 'QKC',
-  [BlockChainType.qkcdev]: 'QKCDEV',
-  [BlockChainType.ethereum]: 'Ethereum',
-  [BlockChainType.rinkeby]: 'Rinkeby',
-  [BlockChainType.ropsten]: 'Ropsten',
+  [BlockChainType.optimism]: 'Optimism',
+  [BlockChainType.arbitrum]: 'Arbitrum',
 }
 
 const blockChainDomain: Record<BlockChainType, string> = {
-  [BlockChainType.bsc]: 'mainnet.bscscan.com',
-  [BlockChainType.bsctest]: 'testnet.bscscan.com',
-  [BlockChainType.qkc]: 'mainnet.quarkchain.io',
-  [BlockChainType.qkcdev]: 'devnet.quarkchain.io',
-  [BlockChainType.ethereum]: 'etherscan.io',
-  [BlockChainType.rinkeby]: 'rinkeby.etherscan.io',
-  [BlockChainType.ropsten]: 'ropsten.etherscan.io',
+  [BlockChainType.optimism]: 'kovan-optimistic.etherscan.io',
+  [BlockChainType.arbitrum]: 'rinkeby-explorer.arbitrum.io',
 }
 
 const blockChainParam: Record<BlockChainType, BlockChainParaType> = {
-  [BlockChainType.bsc]: {
-    chainId: '0x38',
-    chainName: 'Binance Smart Chain',
+  [BlockChainType.optimism]: {
+    chainId: '0x45',
+    chainName: "Optimism Kovan",
     nativeCurrency: {
-      name: 'Binance',
-      symbol: 'BNB', // 2-6 characters long
-      decimals: 18
+      "name": "Kovan Ether",
+      "symbol": "KOR",
+      "decimals": 18
     },
-    blockExplorerUrls: ['https://mainnet.bscscan.com'],
-    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+    blockExplorerUrls: ["https://kovan-optimistic.etherscan.io"],
+    rpcUrls: ["https://kovan.optimism.io/"],
   },
-  [BlockChainType.bsctest]: {
-    chainId: '0x61',
-    chainName: 'Binance Smart Chain Testnet',
+  [BlockChainType.arbitrum]: {
+    chainId: '0x66EEB',
+    chainName: 'Arbitrum Rinkeby',
     nativeCurrency: {
-      name: 'Binance',
-      symbol: 'tBNB',
-      decimals: 18
+      "name": "Arbitrum Rinkeby Ether",
+      "symbol": "ARETH",
+      "decimals": 18
     },
-    blockExplorerUrls: ['https://testnet.bscscan.com'],
-    rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-  },
-  [BlockChainType.qkc]: {
-    chainId: '186A0',
-    chainName: 'QuarkChain Mainnet Root',
-    nativeCurrency: {
-      name: 'QKC',
-      symbol: 'QKC',
-      decimals: 18
-    },
-    blockExplorerUrls: ['https://mainnet.quarkchain.io'],
-    rpcUrls: ['https://mainnet.quarkchain.io/rpc'],
-  },
-  [BlockChainType.qkcdev]: {
-    chainId: '0x1ADB1',
-    chainName: 'QuarkChain Devnet Shard 0',
-    nativeCurrency: {
-      name: 'QKC',
-      symbol: 'QKC',
-      decimals: 18
-    },
-    blockExplorerUrls: ['https://devnet.quarkchain.io/0'],
-    rpcUrls: ['https://devnet-s0-ethapi.quarkchain.io'],
-  },
-  [BlockChainType.ethereum]: {
-    chainId: '0x1',
-    chainName: 'Ethereum Mainnet',
-    nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
-      decimals: 18
-    },
-    blockExplorerUrls: ['https://etherscan.io'],
-    rpcUrls: ['https://mainnet.infura.io/v3/'],
-  },
-  [BlockChainType.rinkeby]: {
-    chainId: '0x4',
-    chainName: 'Ethereum Rinkeby',
-    nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
-      decimals: 18
-    },
-    blockExplorerUrls: ['https://rinkeby.etherscan.io'],
-    rpcUrls: ['https://rinkeby.infura.io/v3/'],
-  },
-  [BlockChainType.ropsten]: {
-    chainId: '0x3',
-    chainName: 'Ethereum Ropsten',
-    nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
-      decimals: 18
-    },
-    blockExplorerUrls: ['https://ropsten.etherscan.io'],
-    rpcUrls: ['https://ropsten.infura.io/v3/'],
-  },
+    blockExplorerUrls: ["https://rinkeby-explorer.arbitrum.io"],
+    rpcUrls: [
+      "https://rinkeby.arbitrum.io/rpc",
+      "wss://rinkeby.arbitrum.io/ws"
+    ],
+  }
 }
 
 
 const blockChainId: Record<BlockChainType, number> = {
-  [BlockChainType.bsc]: 56,
-  [BlockChainType.bsctest]: 97,
-  [BlockChainType.qkc]: 100000,
-  [BlockChainType.qkcdev]: 110001,
-  [BlockChainType.ethereum]: 1,
-  [BlockChainType.rinkeby]: 4,
-  [BlockChainType.ropsten]: 3,
+  [BlockChainType.arbitrum]: 421611,
+  [BlockChainType.optimism]: 69
 }
 
 const chainIdToNetwork: Record<number, BlockChainType> = {
-  // 4: BlockChainType.rinkeby,
-  // 3: BlockChainType.ropsten,
-  110001: BlockChainType.qkcdev,
-  97: BlockChainType.bsctest,
-}
-
-const QKC_NETWORKID = {
-  MAIN_NET: '0x1',
-  DEV_NET: '0xff'
-}
-
-const QKC_SHARDID = {
-  SHARD0: '0x00000000'
+  421611: BlockChainType.arbitrum,
+  69: BlockChainType.optimism,
 }
 
 const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price'
@@ -186,8 +102,6 @@ export default {
   TERRA_EXTENSION,
   BSC_EXTENSION,
   CHROME,
-  QKC_NETWORKID,
-  QKC_SHARDID,
   COINGECKO_API,
   // SHUTTLE_PAIRS,
   // TERRA_WHITELIST,

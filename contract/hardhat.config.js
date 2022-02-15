@@ -16,8 +16,8 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
+const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY} =
+  process.env;
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -26,42 +26,32 @@ module.exports = {
   solidity: "0.8.0",
   networks: {
     hardhat: {
-      initialBaseFeePerGas: 0, // workaround from https://github.com/sc-forks/solidity-coverage/issues/652#issuecomment-896330136 . Remove when that issue is closed.
     },
     rinkeby: {
-      url: process.env.RINKEBY_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: `https://rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     kovan: {
-      url: process.env.KOVAN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     arbitrum: {
-      url: process.env.ARBITRUM_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: `https://arbitrum-rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
-    ropsten: {
-      url: process.env.ROPSTEN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
-    optimism: {
-      url: process.env.OPTIMISM_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    optimisticKovan: {
+      url: `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
+    enabled: REPORT_GAS !== undefined,
     currency: "USD",
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
-  },
-  mocha: {
-    grep: process.env.MOCHA_GREP || "",
-  },
+    apiKey: {
+      kovan: ETHERSCAN_API_KEY,
+      optimisticKovan: OPT_KOVAN_API_KEY,
+    }
+  }
 };

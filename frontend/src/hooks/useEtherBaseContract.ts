@@ -28,10 +28,16 @@ const useEtherBaseContract = (): {
   }): ethers.Contract | undefined => {
       try {
         // if contract is empty, error occurs
+        const newContract = new ethers.Contract(contract, abi, loginUser.provider)
         return contract
-          ? new ethers.Contract(contract, abi, loginUser.provider)
+          ? newContract
           : undefined
-      } catch {}
+      } catch (e: any){
+        console.log(contract)
+        console.log(abi)
+        console.log(loginUser)
+        console.log("Cannot create contract", e)
+      }
   }
 
   const getNativeBalance = async ({

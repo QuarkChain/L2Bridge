@@ -1,0 +1,8 @@
+{
+    "Destination": {
+        "address": "0xA990Df4eD7Ed49A3501FAdF81D9635B3E6fA8610",
+        "mappedToken": {
+            "69": ["Source","0xc439C1BF006444C315eCdE216358C6FC22700404"]
+        }
+    }
+}

@@ -18,7 +18,6 @@ import ExtLink from 'components/ExtLink'
 
 import { RequestTxResultType } from 'types/send'
 import { WalletEnum } from 'types/wallet'
-import { BlockChainType } from 'types/network'
 
 import useAsset from 'hooks/useAsset'
 import useSend from 'hooks/useSend'
@@ -26,6 +25,7 @@ import useNetwork from 'hooks/useNetwork'
 // import useTerraTxInfo from 'hooks/useTerraTxInfo'
 import { ModalProps } from '..'
 import { TokenTypeEnum } from 'types/asset'
+// import { TokenTypeEnum } from 'types/asset'
 
 const StyledContainer = styled.div`
   padding: 0;
@@ -91,7 +91,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
   const toAddress = useRecoilValue(SendStore.toAddress)
   const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
-  const amountAfterShuttleFee = useRecoilValue(SendStore.amountAfterShuttleFee)
+  const amountWithShuttleFee = useRecoilValue(SendStore.amountWithShuttleFee)
 
   const setStatus = useSetRecoilState(SendProcessStore.sendProcessStatus)
   const loginUser = useRecoilValue(AuthStore.loginUser)
@@ -116,17 +116,11 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
       setStatus(ProcessStatus.Pending)
 
       try {
-        if (fromBlockChain === BlockChainType.qkc) {
-          setStatus(ProcessStatus.Done)
-        } else {
-          if (fromBlockChain === BlockChainType.bsc){
-            await waitForEtherBaseTransaction({
-              hash: submitResult.hash,
-            })
-          }
+          await waitForEtherBaseTransaction({
+            hash: submitResult.hash,
+          })
           setloading(false)
           setStatus(ProcessStatus.Done)
-        }
       } catch (error) {
         setSumbitError(_.toString(error))
       }
@@ -154,9 +148,10 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
   return (
     <StyledContainer>
       <div>
+        {asset?.type === TokenTypeEnum.Source && (
         <StyledInfoText>
           {`Transferring ${asset?.symbol} from ${NETWORK.blockChainName[fromBlockChain]} Network to ${NETWORK.blockChainName[toBlockChain]} Network.\nTransaction will be submitted via ${loginUser.walletType}`}
-        </StyledInfoText>
+        </StyledInfoText>)}
         {loginUser.walletType === WalletEnum.WalletConnect && loading && (
           <FormErrorMessage
             style={{
@@ -189,16 +184,18 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
               {formatBalance(displayAmount, asset?.decimal)} {asset?.symbol}
             </Text>
           </div>
+          {asset?.type === TokenTypeEnum.Source && (
               <div style={{ fontSize: 12 }}>
                 <StyledAmountText
-                  isError={amountAfterShuttleFee.isLessThanOrEqualTo(0)}
+                  isError={amountWithShuttleFee.isLessThanOrEqualTo(0)}
                 >
-                  {`After bridge fee : (estimated) ${formatBalance(
-                    amountAfterShuttleFee,
+                  {`Total cost: (estimated) ${formatBalance(
+                    amountWithShuttleFee,
                     asset?.decimal
                   )} ${asset?.symbol}`}
                 </StyledAmountText>
               </div>
+          )}
         </div>
       </div>
 
@@ -228,7 +225,7 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
         >
           <div>
             <Text style={{ color: COLOR.skyGray, marginBottom: 5 }}>
-              {asset?.type === TokenTypeEnum.Wrapped?"Burn":"Lock"} Tx
+              {asset?.type === TokenTypeEnum.Source? 'Deposit': 'Claim'} Tx
             </Text>
           </div>
           <ExtLink
@@ -246,7 +243,14 @@ const SubmitStep = ({ modal }: { modal: ModalProps }): ReactElement => {
               marginTop: 20,
             }}
           >
-          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for the ${NETWORK.blockChainParam[toBlockChain].chainName} to process your request`}
+          {`The transaction has been submitted at ${NETWORK.blockChainParam[fromBlockChain].chainName}, please wait for someone on ${NETWORK.blockChainParam[toBlockChain].chainName} to buy your token.`}
+          </StyledInfoText>
+          <StyledInfoText
+            style={{
+              wordBreak: 'break-all',
+            }}
+          >
+          {asset?.type === TokenTypeEnum.Source && (`The transfer data is:\n` + requestTxResult.para)}
           </StyledInfoText>
         </div>
       )}
