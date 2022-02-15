@@ -36,7 +36,7 @@ const StyledNav = styled.div`
 const StyledLogo = styled(Text)`
   font-size: 0;
   img {
-    width: 70%;
+    width: %;
     height: auto;
   }
   @media (max-width: 575px) {
@@ -71,10 +71,11 @@ const StyledLoginUserInfoBox = styled.div`
   :hover {
     opacity: 0.8;
   }
+  background-color: ${COLOR.lightGrey2};
 `
 const StyledDropdownMenu = styled(Dropdown.Menu)`
   transition-duration: 300ms;
-  background-color: ${COLOR.lightGrey};
+  background-color: ${COLOR.lightGrey2};
   border-radius: ${STYLE.css.borderRadius};
   font-size: 12px;
   width: 100%;
@@ -207,7 +208,7 @@ const Header = (): ReactElement => {
               flex: 1,
             }}
             sm={10}
-            xs={5}
+            xs={10}
           >
             <StyledLogo>
               <img src={bridgeLogo} alt="" />

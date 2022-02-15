@@ -59,7 +59,7 @@ contract L2BridgeSource {
             msg.sender,
             transferData.destination,
             transferData.amount,
-            transferData.amount,
+            transferData.fee,
             transferData.startTime,
             transferData.feeRampup,
             transferData.expiration

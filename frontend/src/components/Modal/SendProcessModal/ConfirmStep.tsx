@@ -15,10 +15,10 @@ import SendProcessStore, { ProcessStatus } from 'store/SendProcessStore'
 
 import useAsset from 'hooks/useAsset'
 
-import { BlockChainType } from 'types/network'
 import AuthStore from '../../../store/AuthStore'
 import useNetwork from '../../../hooks/useNetwork'
 import ExtLink from '../../ExtLink'
+import { TokenTypeEnum } from 'types/asset'
 // import { AssetNativeDenomEnum } from 'types/asset'
 
 const StyledContainer = styled.div`
@@ -75,7 +75,7 @@ const ConfirmStep = (): ReactElement => {
   // const tax = useRecoilValue(SendStore.tax)
   // const feeDenom = useRecoilValue<AssetNativeDenomEnum>(SendStore.feeDenom)
   const shuttleFee = useRecoilValue(SendStore.shuttleFee)
-  const amountAfterShuttleFee = useRecoilValue(SendStore.amountAfterShuttleFee)
+  const amountWithShuttleFee = useRecoilValue(SendStore.amountWithShuttleFee)
   const toBlockChainId = NETWORK.blockChainId[toBlockChain]
 
   return (
@@ -128,6 +128,8 @@ const ConfirmStep = (): ReactElement => {
         </Row>
       </StyledFromToBlockChainBox>
 
+      {asset?.type === TokenTypeEnum.Source && (
+      <div>
       <StyledSection>
         <StyledSecH>Asset</StyledSecH>
         <StyledSecD>
@@ -146,12 +148,12 @@ const ConfirmStep = (): ReactElement => {
           <StyledSecDText>
             <ExtLink
               href={getScannerLink({
-                address: loginUser.address + (fromBlockChain === BlockChainType.qkc ? NETWORK.QKC_SHARDID.SHARD0.substr(2) : ''),
+                address: loginUser.address,
                 type: 'address',
                 chain: fromBlockChain
               })}
             >
-              {loginUser.address + (fromBlockChain === BlockChainType.qkc ? NETWORK.QKC_SHARDID.SHARD0.substr(2) : '')}
+              {loginUser.address}
             </ExtLink>
           </StyledSecDText>
         </StyledSecD>
@@ -163,12 +165,12 @@ const ConfirmStep = (): ReactElement => {
           <StyledSecDText>
             <ExtLink
               href={getScannerLink({
-                address: toAddress + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)),
+                address: toAddress,
                 type: 'address',
                 chain: toBlockChain
               })}
             >
-              {toAddress + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2))}
+              {toAddress}
             </ExtLink>
           </StyledSecDText>
         </StyledSecD>
@@ -183,7 +185,7 @@ const ConfirmStep = (): ReactElement => {
                 {`(estimated) ${formatBalance(shuttleFee, asset?.decimal)}`}
                 <ExtLink
                   href={getScannerLink({
-                    address: asset?.tokenAddress + (fromBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)),
+                    address: asset?.tokenAddress || '',
                     type: 'address',
                     chain: fromBlockChain
                   })}
@@ -201,12 +203,12 @@ const ConfirmStep = (): ReactElement => {
         <StyledSecD>
             <div>
               <StyledSecDText
-                isError={amountAfterShuttleFee.isLessThanOrEqualTo(0)}
+                isError={amountWithShuttleFee.isLessThanOrEqualTo(0)}
               >
-                {` (estimated) ${formatBalance(amountAfterShuttleFee, asset?.decimal)}`}
+                {` (estimated) ${formatBalance(amountWithShuttleFee, asset?.decimal)}`}
                 <ExtLink
                   href={getScannerLink({
-                    address: asset?asset.mapping?asset.mapping[toBlockChainId][1]:"" + (toBlockChain !== BlockChainType.qkc ? '' : NETWORK.QKC_SHARDID.SHARD0.substr(2)):"",
+                    address: asset?asset.mapping?asset.mapping[toBlockChainId][1]:"" :"",
                     type: 'address',
                     chain: toBlockChain
                   })}
@@ -217,6 +219,8 @@ const ConfirmStep = (): ReactElement => {
             </div>
         </StyledSecD>
       </StyledSection>
+      </div>
+      )}
       <br />
       <Button
         onClick={(): void => {

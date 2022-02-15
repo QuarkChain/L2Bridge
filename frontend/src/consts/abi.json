@@ -5,7 +5,9 @@
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
 
-  "function lock(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
-  "function burn(address _token, address _to, uint256 _amount, uint256 _dstChain) public",
-  "function lockNative(address _to, uint256 _dstChain) public payable"
+  "function deposit(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public",
+  "function refund(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public",
+  "function processClaims() public",
+
+  "function claim(tuple(address, address, address, uint256, uint256, uint256, uint256, uint256)) public payable"
 ]

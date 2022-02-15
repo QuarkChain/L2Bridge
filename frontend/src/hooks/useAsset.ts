@@ -6,7 +6,7 @@ import { ASSET } from 'consts'
 import AuthStore from 'store/AuthStore'
 import SendStore from 'store/SendStore'
 
-import { AssetType, WhiteListType, BalanceListType, AllowanceListType, TokenTypeEnum } from 'types/asset'
+import { AssetType, WhiteListType, BalanceListType, AllowanceListType } from 'types/asset'
 import { BlockChainType } from 'types/network'
 
 // import useTerraBalance from './useTerraBalance'
@@ -24,12 +24,8 @@ const useAsset = (): {
   // const toBlockChain = useRecoilValue(SendStore.toBlockChain)
 
   // const terraWhiteList = useRecoilValue(ContractStore.terraWhiteList)
-  const ethWhiteList = useRecoilValue(ContractStore.ethWhiteList)
-  const bsctestWhiteList = useRecoilValue(ContractStore.bsctestWhiteList)
-  const qkcWhiteList = useRecoilValue(ContractStore.qkcWhiteList)
-  const qkcdevWhiteList = useRecoilValue(ContractStore.qkcdevWhiteList)
-  const rinkebyWhiteList = useRecoilValue(ContractStore.rinkebyWhiteList)
-  const ropstenWhiteList = useRecoilValue(ContractStore.ropstenWhiteList)
+  const opWhiteList = useRecoilValue(ContractStore.opWhiteList)
+  const arbWhiteList = useRecoilValue(ContractStore.arbWhiteList)
 
   const setAssetList = useSetRecoilState(SendStore.loginUserAssetList)
 
@@ -61,13 +57,6 @@ const useAsset = (): {
         if (!_.has(whiteList, asset.symbol)) {
           return asset
         }
-        if (fromBlockChain === BlockChainType.qkc || fromBlockChain === BlockChainType.qkcdev) {
-          // pick native or wrapped token from qkc
-          if (asset.type === TokenTypeEnum.Canonical) {
-            return asset
-          }
-        }
-
         const tokenAddress = whiteList[asset.symbol]?.address
 
         return {
@@ -90,28 +79,12 @@ const useAsset = (): {
     let balanceList: BalanceListType = {}
     let allowanceList: AllowanceListType = {}
     if (isLoggedIn) {
-      if (fromBlockChain === BlockChainType.qkc) {
-        whiteList = qkcWhiteList;
+      if (fromBlockChain === BlockChainType.optimism) {
+        whiteList = opWhiteList;
         balanceList = await getEtherBalances({ whiteList})
         allowanceList = await getAllowances({ whiteList})
-      } else if (fromBlockChain === BlockChainType.ethereum) {
-        whiteList = ethWhiteList
-        balanceList = await getEtherBalances({ whiteList })
-        allowanceList = await getAllowances({ whiteList })
-      } else if (fromBlockChain === BlockChainType.bsctest) {
-        whiteList = bsctestWhiteList
-        balanceList = await getEtherBalances({ whiteList })
-        allowanceList = await getAllowances({ whiteList })
-      } else if (fromBlockChain === BlockChainType.rinkeby) {
-        whiteList = rinkebyWhiteList
-        balanceList = await getEtherBalances({ whiteList })
-        allowanceList = await getAllowances({ whiteList })
-      } else if (fromBlockChain === BlockChainType.ropsten) {
-        whiteList = ropstenWhiteList
-        balanceList = await getEtherBalances({ whiteList })
-        allowanceList = await getAllowances({ whiteList })
-      } else if (fromBlockChain === BlockChainType.qkcdev) {
-        whiteList = qkcdevWhiteList
+      } else if (fromBlockChain === BlockChainType.arbitrum) {
+        whiteList = arbWhiteList
         balanceList = await getEtherBalances({ whiteList })
         allowanceList = await getAllowances({ whiteList })
       }

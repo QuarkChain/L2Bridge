@@ -33,6 +33,7 @@ import SendFormButton from './SendFormButton'
 import FormFeeInfo from './FormFeeInfo'
 import useSelectWallet from 'hooks/useSelectWallet'
 import useToken from 'hooks/useToken'
+import { TokenTypeEnum } from 'types/asset'
 
 const StyledContainer = styled(Container)`
   padding: 40px 0;
@@ -42,6 +43,7 @@ const StyledContainer = styled(Container)`
     width: 100vw;
     overflow-x: hidden;
   }
+  background-color: ${COLOR.blueGray};
 `
 
 const StyledMoblieInfoBox = styled.div`
@@ -62,6 +64,7 @@ const StyledForm = styled.div`
   background-color: ${COLOR.white};
   padding: 40px 80px;
   border-radius: 1em;
+  background-color: ${COLOR.lightGrey2};
   @media (max-width: 1199px) {
     padding: 40px;
   }
@@ -73,6 +76,7 @@ const StyledForm = styled.div`
 
 const StyledFormSection = styled.div`
   margin-bottom: 20px;
+  background-color: ${COLOR.lightGrey2};
 `
 
 const StyledMaxButton = styled.div`
@@ -146,13 +150,13 @@ const RefreshButton = (): ReactElement => {
 }
 
 const SendForm = ({
-                    onClickSendButton
-                  }: {
+  onClickSendButton
+}: {
   onClickSendButton: () => Promise<void>
 }): ReactElement => {
   const loginUser = useRecoilValue(AuthStore.loginUser)
   const isLoggedIn = useRecoilValue(AuthStore.isLoggedIn)
-  const { switchOrAddNetwork} = useAuth()
+  const { switchOrAddNetwork } = useAuth()
 
   const status = useRecoilValue(SendProcessStore.sendProcessStatus)
 
@@ -160,6 +164,11 @@ const SendForm = ({
   const asset = useRecoilValue(SendStore.asset)
   const [toAddress, setToAddress] = useRecoilState(SendStore.toAddress)
   const [amount, setAmount] = useRecoilState(SendStore.amount)
+  const [period, setPeriod] = useRecoilState(SendStore.period)
+  const setData = useSetRecoilState(SendStore.data)
+  const setStartTime = useSetRecoilState(SendStore.startTime)
+  const setEndTime = useSetRecoilState(SendStore.endTime)
+  const setFeeRampup = useSetRecoilState(SendStore.feeRampup)
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
   const [toBlockChain, setToBlockChain] = useRecoilState(SendStore.toBlockChain)
 
@@ -168,8 +177,8 @@ const SendForm = ({
   const setGasFeeList = useSetRecoilState(SendStore.gasFeeList)
   // const feeDenom = useRecoilValue<AssetSymbolEnum>(SendStore.feeDenom)
   const setShuttleFee = useSetRecoilState(SendStore.shuttleFee)
-  const setAmountAfterShuttleFee = useSetRecoilState(
-    SendStore.amountAfterShuttleFee
+  const setAmountWithShuttleFee = useSetRecoilState(
+    SendStore.amountWithShuttleFee
   )
   const fromBlockChain = useRecoilValue(
     SendStore.fromBlockChain
@@ -179,6 +188,8 @@ const SendForm = ({
     isValid: false
   })
   const [inputAmount, setInputAmount] = useState('')
+  const [inputPeriod, setInputPeriod] = useState('')
+  const [inputData, setInputData] = useState('')
   const [notAllowed, setNotAllowed] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setloading] = useState(false)
@@ -202,12 +213,12 @@ const SendForm = ({
       setloading(true)
 
       try {
-          const receipt = await waitForEtherBaseTransaction({
-            hash: submitResult.hash,
-          })
-          console.log('receipt', receipt)
-          setloading(false)
-          setNotAllowed(false)
+        const receipt = await waitForEtherBaseTransaction({
+          hash: submitResult.hash,
+        })
+        console.log('receipt', receipt)
+        setloading(false)
+        setNotAllowed(false)
 
       } catch (error) {
         setErrorMessage(_.toString(error))
@@ -240,6 +251,31 @@ const SendForm = ({
     }
   }
 
+  const onChangePeriod = ({ value }: { value: string }): void => {
+    if (_.isEmpty(value)) {
+      setInputPeriod('')
+      setPeriod(0)
+      return
+    }
+
+    if (false === _.isNaN(_.toNumber(value))) {
+      setInputPeriod(value)
+      setPeriod(new BigNumber(value,10).toNumber())
+    }
+  }
+
+  const onChangeData = ({ value }: { value: string }): void => {
+    if (_.isEmpty(value)) {
+      setInputData('')
+      setData('')
+      return
+    }
+
+    setInputData(value)
+    setData(value)
+  }
+
+
   const onClickApproveButton = async (): Promise<void> => {
     setErrorMessage('')
     setloading(true)
@@ -259,9 +295,6 @@ const SendForm = ({
   useEffect(() => {
     if (status === ProcessStatus.Done) {
       onChangeAmount({ value: '' })
-      if (fromBlockChain === BlockChainType.qkc) {
-        onChangeToAddress({ value: loginUser.address })
-      }
       getAssetList()
     }
   }, [status])
@@ -269,7 +302,7 @@ const SendForm = ({
   const calcShuttleFee = async (): Promise<void> => {
     if (!asset) {
       setShuttleFee(new BigNumber(0))
-      setAmountAfterShuttleFee(new BigNumber(0))
+      setAmountWithShuttleFee(new BigNumber(0))
       return
     }
     else {
@@ -280,14 +313,14 @@ const SendForm = ({
           amount: sendAmount
         }).then((shuttleFee) => {
           setShuttleFee(shuttleFee)
-          const computedAmount = sendAmount.minus(shuttleFee.isLessThan(0)?0:shuttleFee)
-          setAmountAfterShuttleFee(
+          const computedAmount = sendAmount.plus(shuttleFee.isLessThan(0) ? 0 : shuttleFee)
+          setAmountWithShuttleFee(
             computedAmount.isGreaterThan(0) ? computedAmount : new BigNumber(0)
           )
         })
       } else {
         setShuttleFee(new BigNumber(0))
-        setAmountAfterShuttleFee(new BigNumber(0))
+        setAmountWithShuttleFee(new BigNumber(0))
       }
     }
   }
@@ -309,6 +342,10 @@ const SendForm = ({
         setGasFeeList(qkcFeeList)
       }
       calcShuttleFee()
+      setStartTime(Math.floor(Date.now()/1000))
+      setPeriod(period)
+      setEndTime(Math.floor(Date.now()/1000) + period)
+      setFeeRampup(period)
     }
   }, 300)
 
@@ -318,7 +355,7 @@ const SendForm = ({
     return (): void => {
       dbcGetFeeInfoWithValidation.cancel()
     }
-  }, [amount, toAddress, toBlockChain, asset?.tokenAddress])
+  }, [amount, period, toAddress, toBlockChain, asset?.tokenAddress])
 
   useEffect(() => {
     getAssetList()
@@ -328,10 +365,14 @@ const SendForm = ({
 
   useEffect(() => {
     onChangeAmount({ value: inputAmount })
+    onChangePeriod({ value: inputPeriod })
     getAssetList().then((): void => {
       dbcGetFeeInfoWithValidation.callback()
     })
     setToAddress(loginUser.address)
+    setStartTime(Math.floor(Date.now()/1000))
+    setEndTime(Math.floor(Date.now()/1000) + period)
+    setFeeRampup(period)
   }, [
     // to check decimal length by network
     loginUser,
@@ -342,10 +383,10 @@ const SendForm = ({
   useEffect(() => {
     STYLE.isSupportBrowser && selectWallet.open()
     setToAddress(loginUser.address)
-    if (fromBlockChain === BlockChainType.qkcdev) {
-      setToBlockChain(BlockChainType.bsctest)
-    } else if (fromBlockChain === BlockChainType.bsctest) {
-      setToBlockChain(BlockChainType.qkcdev)
+    if (fromBlockChain === BlockChainType.arbitrum) {
+      setToBlockChain(BlockChainType.optimism)
+    } else if (fromBlockChain === BlockChainType.optimism) {
+      setToBlockChain(BlockChainType.arbitrum)
     }
   }, [fromBlockChain])
 
@@ -404,12 +445,12 @@ const SendForm = ({
                         //   value: BlockChainType.ropsten,
                         // },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.qkcdev],
-                          value: BlockChainType.qkcdev,
+                          label: NETWORK.blockChainName[BlockChainType.arbitrum],
+                          value: BlockChainType.arbitrum,
                         },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.bsctest],
-                          value: BlockChainType.bsctest,
+                          label: NETWORK.blockChainName[BlockChainType.optimism],
+                          value: BlockChainType.optimism,
                         }
                       ]
                     }}
@@ -446,14 +487,14 @@ const SendForm = ({
                         //   isDisabled: fromBlockChain === BlockChainType.rinkeby
                         // },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.qkcdev],
-                          value: BlockChainType.qkcdev,
-                          isDisabled: fromBlockChain === BlockChainType.qkcdev
+                          label: NETWORK.blockChainName[BlockChainType.optimism],
+                          value: BlockChainType.optimism,
+                          isDisabled: fromBlockChain === BlockChainType.optimism
                         },
                         {
-                          label: NETWORK.blockChainName[BlockChainType.bsctest],
-                          value: BlockChainType.bsctest,
-                          isDisabled: fromBlockChain === BlockChainType.bsctest
+                          label: NETWORK.blockChainName[BlockChainType.arbitrum],
+                          value: BlockChainType.arbitrum,
+                          isDisabled: fromBlockChain === BlockChainType.arbitrum
                         }
                       ]
                     }}
@@ -462,6 +503,7 @@ const SendForm = ({
               </Row>
             </StyledFormSection>
 
+            {asset?.type === TokenTypeEnum.Source && (
             <StyledFormSection>
               <FormLabel title={'Amount'} />
               <div style={{ position: 'relative' }}>
@@ -483,9 +525,19 @@ const SendForm = ({
                   errorMessage={validationResult.errorMessage?.amount}
                 />
               )}
-            </StyledFormSection>
 
-            <StyledFormSection>
+              <FormLabel title={'Expire Period(sec)'} />
+              <div style={{ position: 'relative' }}>
+                <FormInput
+                  type={'number'}
+                  value={inputPeriod}
+                  onChange={({ target: { value } }): void => {
+                    onChangePeriod({ value })
+                  }}
+                  placeholder={'0'}
+                />
+              </div>
+
               <FormLabel title={'Destination'} />
               <FormInput
                 onChange={({ target: { value } }): void => {
@@ -493,12 +545,26 @@ const SendForm = ({
                 }}
                 defaultValue={loginUser.address}
                 placeholder={loginUser.address}
-                disabled={fromBlockChain === BlockChainType.bsc}
               />
               <FormErrorMessage
                 errorMessage={validationResult.errorMessage?.toAddress}
               />
             </StyledFormSection>
+            )}
+
+            {asset?.type === TokenTypeEnum.Destination && (
+            <StyledFormSection>
+              <FormLabel title={'Transfer Data'} />
+              <FormInput
+                type={'string'}
+                value={inputData}
+                onChange={({ target: { value } }): void => {
+                  onChangeData({ value })
+                }}
+                placeholder={"Transfer Data Tuple"}
+              />
+            </StyledFormSection>
+            )}
 
             {/* only if from qkc */}
             <FormFeeInfo
@@ -507,16 +573,16 @@ const SendForm = ({
             />
 
             <SendFormButton
-              onClickSendButton={notAllowed? onClickApproveButton:onClickSendButton}
+              onClickSendButton={notAllowed ? onClickApproveButton : onClickSendButton}
               validationResult={validationResult}
               feeValidationResult={feeValidationResult}
               notAllowed={notAllowed}
               loading={loading}
             />
 
-          <div style={{ textAlign: 'center' }}>
-          <FormErrorMessage errorMessage={errorMessage} />
-          </div>
+            <div style={{ textAlign: 'center' }}>
+              <FormErrorMessage errorMessage={errorMessage} />
+            </div>
 
           </StyledForm>
         </Col>

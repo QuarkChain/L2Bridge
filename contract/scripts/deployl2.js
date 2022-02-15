@@ -8,10 +8,10 @@ async function main() {
 
   const cfg = require("../deployments.json");
   const chainMap = {
-    "69": "42",
-    "421611": "4",
-    "31337": "31337"
-  }
+    69: "42",
+    421611: "4",
+    31337: "31337",
+  };
   const l1Bridge = cfg[chainMap[network.chainId]].bridge;
 
   const BridgeSource = await ethers.getContractFactory("OptimismBridgeSource");
