@@ -41,7 +41,7 @@ const useSend = (): UseSendType => {
   const [sendAmount, setSendAmount] = useRecoilState(SendStore.amount)
   // const [memo, setMemo] = useRecoilState(SendStore.memo)
   const [sendData, setSendData] = useRecoilState(SendStore.data)
-  const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
+  // const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
   const toBlockChain = useRecoilValue(SendStore.toBlockChain)
   const shuttleFee = useRecoilValue(SendStore.shuttleFee)
   const startTime = useRecoilValue(SendStore.startTime)
@@ -109,7 +109,7 @@ const useSend = (): UseSendType => {
         success: false,
       }
     }
-    const bridgeAddress = shuttleAddress[fromBlockChain]
+    const bridgeAddress = shuttleAddress[asset.type === TokenTypeEnum.Source ? 'source': 'destination']
     const contract = getEtherBaseContract({ contract: bridgeAddress })
 
     if (contract && loginUser.provider) {
