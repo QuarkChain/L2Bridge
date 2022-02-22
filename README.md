@@ -29,4 +29,4 @@ The L2Bridge is a cross-layer-2 protocol that provides asset transfer between ex
 
 ## Tutorial
 
-You can deploy and run the app locally, or reuse the contracts and [app](l2bridge.vercel.app) following the [demo](demo.mp4).
+You can deploy and run the app locally, or reuse the contracts and [app](https://l2bridge.vercel.app/) with the [demo](demo.mp4).
