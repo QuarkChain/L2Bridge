@@ -4,7 +4,7 @@ import { MaxUint256 } from '@ethersproject/constants'
 
 import AuthStore from 'store/AuthStore'
 
-import { WhiteListType, AllowanceListType } from 'types/asset'
+import { WhiteListType, AllowanceListType, TokenTypeEnum } from 'types/asset'
 
 import SendStore from 'store/SendStore'
 import useEtherBaseContract from './useEtherBaseContract'
@@ -22,7 +22,6 @@ const useToken = (): {
 } => {
   const { getEtherBaseContract } = useEtherBaseContract()
   const loginUser = useRecoilValue(AuthStore.loginUser)
-  const fromBlockChain = useRecoilValue(SendStore.fromBlockChain)
   const asset = useRecoilValue(SendStore.asset)
   const getAllowance = async ({
     token,
@@ -59,7 +58,7 @@ const useToken = (): {
     whiteList: WhiteListType
   }): Promise<AllowanceListType> => {
     const userAddress = loginUser.address
-    const bridgeAddress = shuttleAddress[fromBlockChain]
+    const bridgeAddress = shuttleAddress[asset?.type === TokenTypeEnum.Source ? 'source': 'destination']
     const list: AllowanceListType = {}
     await Promise.all(
       _.map(whiteList, async (token) => {
@@ -80,7 +79,7 @@ const useToken = (): {
         success: false,
       }
     }
-    const bridgeAddress = shuttleAddress[fromBlockChain]
+    const bridgeAddress = shuttleAddress[asset.type === TokenTypeEnum.Source ? 'source': 'destination']
     const contract = getEtherBaseContract({ contract: asset.tokenAddress })
 
     if (contract && loginUser.provider) {
