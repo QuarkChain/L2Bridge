@@ -1,14 +1,14 @@
 {
-  "Source": {
-    "address": "0xc439C1BF006444C315eCdE216358C6FC22700404",
+  "USDC": {
+    "address": "0xF495b9DE9143e9CB81087880d089aA161Bb6B82B",
     "mappedToken": {
-      "421611": ["Destination","0xA990Df4eD7Ed49A3501FAdF81D9635B3E6fA8610"]
+      "421611": ["USDT","0x352ad2db4b7695B2919e0926FF7659FEa16d7f5C"]
     }
   },
-  "Destination": {
-    "address": "0xA990Df4eD7Ed49A3501FAdF81D9635B3E6fA8610",
+  "USDT": {
+    "address": "0x352ad2db4b7695B2919e0926FF7659FEa16d7f5C",
     "mappedToken": {
-        "421611": ["Source","0xc439C1BF006444C315eCdE216358C6FC22700404"]
+        "421611": ["USDC","0xF495b9DE9143e9CB81087880d089aA161Bb6B82B"]
     }
 }
 }

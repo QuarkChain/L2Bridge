@@ -7,7 +7,7 @@ const ETHER_BASE_DECIMAL = 1e18
 const assetList: AssetType[] = [
   {
     symbol: AssetSymbolEnum.Source,
-    name: 'Source Token',
+    name: 'USD Coin',
     loguURI: ethpng,
     tokenAddress: '',
     type: TokenTypeEnum.Source,
@@ -16,7 +16,7 @@ const assetList: AssetType[] = [
   },
   {
     symbol: AssetSymbolEnum.Destination,
-    name: 'Destination Token',
+    name: 'Tether USD',
     loguURI: ethpng,
     tokenAddress: '',
     type: TokenTypeEnum.Destination,

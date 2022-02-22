@@ -9,14 +9,14 @@ async function main() {
   const cfg = require("../deployments.json");
 
   const Token = await ethers.getContractFactory("TestERC20WithName");
-  const tokenSrcArgs = ["Source"];
+  const tokenSrcArgs = ["USDC"];
   const tokenSrc = await Token.deploy(...tokenSrcArgs);
   const tokenSrcAddress = await tokenSrc.address;
-  console.log("TokenSource deployed to:", tokenSrcAddress);
-  const tokenDestArgs = ["Destination"];
+  console.log("USDC deployed to:", tokenSrcAddress);
+  const tokenDestArgs = ["USDT"];
   const tokenDest = await Token.deploy(...tokenDestArgs);
   const tokenDestAddress = await tokenDest.address;
-  console.log("TokenDestination deployed to:", tokenDestAddress);
+  console.log("USDT deployed to:", tokenDestAddress);
 
   // Dump to file
   cfg[network.chainId] = {

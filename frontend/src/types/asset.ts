@@ -1,6 +1,6 @@
 export enum AssetSymbolEnum {
-  "Source" = "Source",
-  "Destination" = "Destination"
+  "Source" = "USDC",
+  "Destination" = "USDT"
 }
 
 export enum TokenTypeEnum {

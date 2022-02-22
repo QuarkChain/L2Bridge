@@ -8,22 +8,22 @@
     ]
   },
   "69": {
-    "bridgeSrc": "0x87a6A26e6b8dffED184E5CE0F08628a802293460",
+    "bridgeSrc": "0x524867916F136b56083b7b1F071d228361A6600E",
     "bridgeSrcArgs": [
       "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c"
     ],
-    "bridgeDest": "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
+    "bridgeDest": "0x0AD853E840cCa279F24c59698751aD2635E5c533",
     "bridgeDestArgs": [
       "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
       100
     ],
-    "tokenSrc": "0xc439C1BF006444C315eCdE216358C6FC22700404",
+    "tokenSrc": "0xF495b9DE9143e9CB81087880d089aA161Bb6B82B",
     "tokenSrcArgs": [
-      "Source"
+      "USDC"
     ],
-    "tokenDest": "0xA990Df4eD7Ed49A3501FAdF81D9635B3E6fA8610",
+    "tokenDest": "0x352ad2db4b7695B2919e0926FF7659FEa16d7f5C",
     "tokenDestArgs": [
-      "Destination"
+      "USDT"
     ]
   },
   "31337": {
