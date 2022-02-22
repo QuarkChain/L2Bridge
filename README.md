@@ -6,7 +6,7 @@ The L2Bridge is a cross-layer-2 protocol that provides asset transfer between ex
 ## Contracts
 
 - `L2BridgeSource.sol`: source bridge for user to deposit the source token and for LP to withdraw the source token
-- `L2BridgeDEstination.sol`: destination bridge for LP to buy user's source token
+- `L2BridgeDestination.sol`: destination bridge for LP to buy user's source token
 - `OptimismL1Bridge.sol`: Layer1 bridge that sync the status between source and destination bridge on Layer 2
 
 
@@ -29,4 +29,4 @@ The L2Bridge is a cross-layer-2 protocol that provides asset transfer between ex
 
 ## Tutorial
 
-You can deploy or reuse the contracts above and use the app following the [demo](demo.mp4).
+You deploy or reuse the contracts and [app](l2bridge.vercel.app) following the [demo](demo.mp4).
