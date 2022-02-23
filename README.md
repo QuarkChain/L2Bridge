@@ -4,8 +4,8 @@ The L2Bridge is a cross-layer-2 protocol that provides asset transfer between ex
 
 The main features of the bridges are:
 - Almost instant user asset transfer;
-- Single user operation (compared to two-step operation in HTLC);
-- Does not rely on additional security assumption (e.g., 3rd party), only L1/L2 security assumption;
+- Single user operation (compared to two-step operations in HTLC);
+- Does not rely on additional security assumption (e.g., 3rd party), i.e., only assuming L1/L2 security;
 - No off-chain LP matching (instead, using a reverse fee auction).
 
 
