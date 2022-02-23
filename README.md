@@ -1,6 +1,12 @@
 # L2Bridge
 
-The L2Bridge is a cross-layer-2 protocol that provides asset transfer between existing L2 networks. The main idea is to sacrifice the time cost of the Liquidiy Provider and make the user transfer their asset real time.
+The L2Bridge is a cross-layer-2 protocol that provides asset transfer between existing L2 networks. The main idea is based on Vitalik's idea in https://notes.ethereum.org/@vbuterin/cross_layer_2_bridges and further illustrated at https://medium.com/@qizhou_63115/cross-l2-bridge-hashed-timelock-contract-vs-delayed-proved-timelock-contract-7e738dd2094e.
+
+The main features of the bridges are:
+- Almost instant user asset transfer;
+- Single user operation (compared to two-step operation in HTLC);
+- Does not rely on additional security assumption (e.g., 3rd party), only L1/L2 security assumption;
+- No off-chain LP matching (instead, using a reverse fee auction).
 
 
 ## Contracts
