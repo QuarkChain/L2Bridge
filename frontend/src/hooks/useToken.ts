@@ -9,7 +9,6 @@ import { WhiteListType, AllowanceListType, TokenTypeEnum } from 'types/asset'
 import SendStore from 'store/SendStore'
 import useEtherBaseContract from './useEtherBaseContract'
 import { RequestTxResultType } from 'types/send'
-import { BigNumber } from "@ethersproject/bignumber";
 const shuttleAddress = require('../consts/address.json')
 
 const useToken = (): {
@@ -87,7 +86,7 @@ const useToken = (): {
       const withSigner = contract.connect(signer)
 
       try {
-        const tx = withSigner.approve(bridgeAddress, amount?BigNumber.from(amount):MaxUint256)
+        const tx = withSigner.approve(bridgeAddress, MaxUint256)
         const {hash} = await tx
         return { success: true, hash }
       } catch (error: any) {

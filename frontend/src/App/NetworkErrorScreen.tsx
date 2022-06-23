@@ -40,7 +40,7 @@ const StyledContainer = styled(Container)`
 
 const StyledTitle = styled(Text)`
   display: block;
-  font-size: 24;
+  font-size: 24px;
   font-weight: 400;
   color: ${COLOR.red};
   font-size: 18px;

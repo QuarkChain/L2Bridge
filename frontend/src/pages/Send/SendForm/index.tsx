@@ -33,7 +33,7 @@ import SendFormButton from './SendFormButton'
 import FormFeeInfo from './FormFeeInfo'
 import useSelectWallet from 'hooks/useSelectWallet'
 import useToken from 'hooks/useToken'
-import { TokenTypeEnum } from 'types/asset'
+import { TokenTypeEnum} from 'types/asset'
 
 const StyledContainer = styled(Container)`
   padding: 40px 0;
@@ -246,7 +246,7 @@ const SendForm = ({
       const decimalSize = new BigNumber(asset?.decimal || 18).toNumber()
       const decimalExp = new BigNumber(10).pow(decimalSize)
       setAmount(new BigNumber(value).times(decimalExp).toString(10))
-      setNotAllowed(new BigNumber(value).times(decimalExp).isGreaterThan(asset?.allowance || value))
+      setNotAllowed(asset?.allowance === "0")
       calcShuttleFee()
     }
   }
@@ -275,6 +275,10 @@ const SendForm = ({
     setData(value)
   }
 
+  const onChangeAsset = (): void => {
+    setNotAllowed(asset?.allowance === "0")
+    // console.log("Not Allowed?",asset?.allowance === "0")
+  }
 
   const onClickApproveButton = async (): Promise<void> => {
     setErrorMessage('')
@@ -390,6 +394,10 @@ const SendForm = ({
     }
   }, [fromBlockChain])
 
+  useEffect(() => {
+    onChangeAsset()
+  }, [asset])
+
   return (
     <StyledContainer>
       {false === STYLE.isSupportBrowser && (
@@ -447,6 +455,7 @@ const SendForm = ({
                         {
                           label: NETWORK.blockChainName[BlockChainType.arbitrum],
                           value: BlockChainType.arbitrum,
+                          isDisabled: true
                         },
                         {
                           label: NETWORK.blockChainName[BlockChainType.optimism],
@@ -525,6 +534,7 @@ const SendForm = ({
                   errorMessage={validationResult.errorMessage?.amount}
                 />
               )}
+              <br/>
 
               <FormLabel title={'Expire Period(sec)'} />
               <div style={{ position: 'relative' }}>
