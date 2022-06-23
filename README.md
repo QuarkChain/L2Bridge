@@ -36,3 +36,4 @@ The main features of the bridges are:
 ## Tutorial
 
 You can deploy and run the app locally, or reuse the contracts and [app](https://l2bridge.vercel.app/) with the [demo](demo.mp4).
+You can mint the Source and Destination token from the contract for test.
