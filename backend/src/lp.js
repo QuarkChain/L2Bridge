@@ -10,6 +10,7 @@ const srcProvider = new ethers.providers.JsonRpcProvider(`https://optimism-kovan
 const dstProvider = new ethers.providers.JsonRpcProvider(`https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`);
 const l1Provider = new ethers.providers.StaticJsonRpcProvider(`https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`);
 
+const srcSigner = new ethers.Wallet(PRIVATE_KEY, srcProvider);
 const dstSigner = new ethers.Wallet(PRIVATE_KEY, dstProvider);
 const l1Signer = new ethers.Wallet(PRIVATE_KEY, l1Provider);
 
@@ -19,7 +20,8 @@ const l1Address = "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c";
 
 const srcContract = new ethers.Contract(srcAddress, [
     "event Deposit(address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
-    "function knownHashOnions(uint256) public view returns (bytes32)"
+    "function knownHashOnions(uint256) public view returns (bytes32)",
+    "function processClaims((bytes32 transferDataHash,address claimer,address srcTokenAddress,uint256 amount)[] memory rewardDataList,uint256[] memory skipFlags) public",
 ], srcProvider);
 const dstContract = new ethers.Contract(dstAddress, [
     "function claimedTransferHashes(bytes32) public view returns (bool)",
@@ -29,53 +31,85 @@ const dstContract = new ethers.Contract(dstAddress, [
 ], dstProvider).connect(dstSigner);
 const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public"], l1Provider).connect(l1Signer);
 
-const successClaimedHash = [];
-const failedClaims = [];
+const rewardData = [];
+async function start(fromBlock) {
+    let toBlock = fromBlock;
+    try {
+        const curBlock = await srcProvider.getBlockNumber();
+        toBlock = curBlock - 3; //in case of blocks roll back
+        const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
+        console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+        const transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
+        for (let i = 0; i < transferData.length; i++) {
+            console.log("transferData", transferData[i].map(d => String(d)));
+            const transferDataHash = ethers.utils.keccak256(
+                ethers.utils.defaultAbiCoder.encode([
+                    "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
+                    [transferData[i]]));
+            if (await dstContract.claimedTransferHashes(transferDataHash)) {
+                console.log("the claim is already bought");
+                rewardData.push([
+                    transferDataHash,
+                    dstSigner.address,
+                    transferData[i][0],
+                    transferData[i][3],
+                ]);
+                continue;
+            }
+            if (await take(transferData[i])) {
+                rewardData.push([
+                    transferDataHash,
+                    dstSigner.address,
+                    transferData[i][0],
+                    transferData[i][3],
+                ]);
+                const transCount = await dstContract.transferCount();
+                await syncHash(transCount);
+            }
+        }
+    } catch (e) {
+        console.error(e.reason ? e.reason : e);
+    }
+    setTimeout(() => start(toBlock), 60 * 1000);
+}
 
-async function work(fromBlock) {
-    const curBlock = await srcProvider.getBlockNumber();
-    let toBlock = fromBlock + 1000;
-    if (curBlock < toBlock) {
-        toBlock = curBlock;
-    }
-    const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-    console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
-    const transferData = res.sort((a, b) =>
-        a.blockNumber === b.blockNumber ? a.transactionIndex - b.transactionIndex : a.blockNumber - b.blockNumber
-    ).map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
-    for (let i = 0; i < transferData.length; i++) {
-        console.log("transferData", i, transferData[i])
-        const transferDataHash = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode([
-                "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
-                [transferData[i]]));
-        const claimed = await dstContract.claimedTransferHashes(transferDataHash);
-        console.log("claimedTransferHashes", i, claimed)
-        if (claimed) {
-            console.log("the claim is already bought", i);
-            continue;
-        }
-        let receipt;
+async function withdraw() {
+    if (rewardData.length > 0) {
+        console.log("start withdraw", rewardData.map(r => r.map(d => String(d))))
         try {
-            const tx = await dstContract.claim(transferData[i]);
-            receipt = await tx.wait();
+            const gas = await srcContract.connect(srcSigner).estimateGas.processClaims(rewardData, [0]);
+            console.log("gas", gas)
+            const tx = await srcContract.connect(srcSigner).processClaims(rewardData, [0], { gasLimit: gas.mul(4).div(3) });
+            const receipt = await tx.wait();
+            if (receipt.status == 1) {
+                console.log("withdraw reward success!", tx.hash)
+                rewardData = [];
+            }
         } catch (e) {
-            failedClaims.push(transferData[i]);
-            console.error("claim failed:", e.reason);
+            console.error("withdraw failed:", e.reason ? e.reason : e);
         }
-        if (receipt.status == 1) {
-            successClaimedHash.push(transferDataHash);
-            console.log("claim success", transferDataHash);
-            const transCount = await dstContract.transferCount();
-            await syncHash(transCount);
-        }
+    } else {
+        console.log("nothing to withdraw")
     }
-    fromBlock = toBlock;
-    setTimeout(() => work(fromBlock), 10 * 1000);
+    setTimeout(() => withdraw(), 0.004 * 3600 * 1000);
+}
+
+async function take(transferData) {
+    try {
+        const tx = await dstContract.claim(transferData);
+        const receipt = await tx.wait();
+        if (receipt.status == 1) {
+            console.log("claim success");
+            return true;
+        }
+    } catch (e) {
+        console.error("claim failed:", transferData, e.reason ? e.reason : e);
+        return false;
+    }
 }
 
 async function syncHash(count) {
-    console.log("syncHash for", count);
+    console.log("syncHash for", count.toNumber());
     let chainHead;
     try {
         const tx = await dstContract.declareNewHashChainHead(count, 200000, { gasLimit: 200000 });
@@ -89,19 +123,23 @@ async function syncHash(count) {
     if (!chainHead) {
         return;
     }
-    const tx = await l1Contract.setChainHashInL2Test(count, chainHead, 200000);
-    const receipt = await tx.wait();
-    console.log("syncHash", receipt);
+    try {
+        const tx = await l1Contract.setChainHashInL2Test(count, chainHead, 200000);
+        const receipt = await tx.wait();
+        console.log("L1 to src MessageSent", receipt.status);
+    } catch (e) {
+        console.error("setChainHashInL2Test failed:", e);
+    }
     await new Promise(r => setTimeout(r, 60000));
     const os = await srcContract.knownHashOnions(count);
-    console.log(`Sync hashOnion done: chainHead=${chainHead}, knownHashOnion=${os}`);
+    console.log(`Sync hashOnion done: count=${count} chainHead=${chainHead}, knownHashOnion=${os}`);
 }
 
-async function syncHashAll() {
+async function syncHashHistory() {
     const transCount = await dstContract.transferCount();
     const total = transCount.toNumber();
     console.log("Total transferfrom dst contract", total);
-    for (let i = total; i <= total; i++) {
+    for (let i = 0; i < total; i++) {
         const known = await srcContract.knownHashOnions(i);
         console.log(`Src knowHashOnion of ${i} is ${known}`);
         if (known == ethers.constants.HashZero) {
@@ -113,17 +151,13 @@ async function syncHashAll() {
 async function main() {
     const curBlock = await srcProvider.getBlockNumber();
     console.log("Current block number", curBlock)
-    const fromBlock = curBlock - 5000;
-    work(fromBlock);
+    const fromBlock = curBlock - 50000;
+    start(fromBlock);
+    withdraw();
+
 
 }
 
-// struct RewardData {
-//     bytes32 transferDataHash;
-//      claimer;
-//      srcToken;
-//      amount;
-// }
 
 main().catch((error) => {
     console.error(error);
