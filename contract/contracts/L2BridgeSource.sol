@@ -113,7 +113,7 @@ contract L2BridgeSource {
                         10000
                 );
 
-                transferStatus[rewardDataList[i].transferDataHash] == XFER_DONE;
+                transferStatus[rewardDataList[i].transferDataHash] = XFER_DONE;
             }
             // if not pending, it will just skip it.
         }
