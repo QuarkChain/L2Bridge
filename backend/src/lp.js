@@ -20,10 +20,12 @@ const l1Address = "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c";
 
 const srcContract = new ethers.Contract(srcAddress, [
     "event Deposit(address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
+    "function transferStatus(bytes32) public view returns (uint256)",
     "function knownHashOnions(uint256) public view returns (bytes32)",
     "function processClaims((bytes32 transferDataHash,address claimer,address srcTokenAddress,uint256 amount)[] memory rewardDataList,uint256[] memory skipFlags) public",
 ], srcProvider);
 const dstContract = new ethers.Contract(dstAddress, [
+    "event Claim(bytes32,address,address,uint256)",
     "function claimedTransferHashes(bytes32) public view returns (bool)",
     "function transferCount() public view returns (uint256)",
     "function claim((address srcTokenAddress,address dstTokenAddress,address destination,uint256 amount,uint256 fee,uint256 startTime,uint256 feeRampup, uint256 expiration) memory transferData) public",
@@ -31,8 +33,10 @@ const dstContract = new ethers.Contract(dstAddress, [
 ], dstProvider).connect(dstSigner);
 const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public"], l1Provider).connect(l1Signer);
 
-const rewardData = [];
-async function start(fromBlock) {
+// let rewardData = [];
+
+
+async function traceDeposit(fromBlock) {
     let toBlock = fromBlock;
     try {
         const curBlock = await srcProvider.getBlockNumber();
@@ -48,21 +52,15 @@ async function start(fromBlock) {
                     [transferData[i]]));
             if (await dstContract.claimedTransferHashes(transferDataHash)) {
                 console.log("the claim is already bought");
-                rewardData.push([
-                    transferDataHash,
-                    dstSigner.address,
-                    transferData[i][0],
-                    transferData[i][3],
-                ]);
                 continue;
             }
             if (await take(transferData[i])) {
-                rewardData.push([
-                    transferDataHash,
-                    dstSigner.address,
-                    transferData[i][0],
-                    transferData[i][3],
-                ]);
+                // rewardData.push([
+                //     transferDataHash,
+                //     dstSigner.address,
+                //     transferData[i][0],
+                //     transferData[i][3],
+                // ]);
                 const transCount = await dstContract.transferCount();
                 await syncHash(transCount);
             }
@@ -70,33 +68,45 @@ async function start(fromBlock) {
     } catch (e) {
         console.error(e.reason ? e.reason : e);
     }
-    setTimeout(() => start(toBlock), 60 * 1000);
+    setTimeout(() => traceDeposit(toBlock), 30 * 1000);
 }
 
-async function withdraw() {
+async function traceClaim(fromBlock) {
+    const rewardData = [];
+    let toBlock = fromBlock;
+    try {
+        const curBlock = await srcProvider.getBlockNumber();
+        toBlock = curBlock - 3; //in case of blocks roll back
+        const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
+        console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Claim`);
+        for (r of res) {
+            rewardData.push(r.args);
+        }
+        console.log("rewardData", rewardData.map(r => r.map(i => String(i))));
+    } catch (e) {
+        console.log("query Claim failed:", e)
+    }
     if (rewardData.length > 0) {
         console.log("start withdraw", rewardData.map(r => r.map(d => String(d))))
         try {
             const gas = await srcContract.connect(srcSigner).estimateGas.processClaims(rewardData, [0]);
-            console.log("gas", gas)
+            console.log("gas", gas.toString())
             const tx = await srcContract.connect(srcSigner).processClaims(rewardData, [0], { gasLimit: gas.mul(4).div(3) });
             const receipt = await tx.wait();
             if (receipt.status == 1) {
-                console.log("withdraw reward success!", tx.hash)
-                rewardData = [];
+                console.log("withdraw reward success!", tx.hash);
             }
         } catch (e) {
             console.error("withdraw failed:", e.reason ? e.reason : e);
         }
-    } else {
-        console.log("nothing to withdraw")
     }
-    setTimeout(() => withdraw(), 0.004 * 3600 * 1000);
+    setTimeout(() => traceClaim(toBlock), 100 * 1000);
 }
 
 async function take(transferData) {
+    let tx;
     try {
-        const tx = await dstContract.claim(transferData);
+        tx = await dstContract.claim(transferData);
         const receipt = await tx.wait();
         if (receipt.status == 1) {
             console.log("claim success");
@@ -104,12 +114,13 @@ async function take(transferData) {
         }
     } catch (e) {
         console.error("claim failed:", transferData, e.reason ? e.reason : e);
-        return false;
     }
+    console.log("claim failed: tx=", tx.hash);
+    return false;
 }
 
 async function syncHash(count) {
-    console.log("syncHash for", count.toNumber());
+    console.log("syncHash for", count.toString());
     let chainHead;
     try {
         const tx = await dstContract.declareNewHashChainHead(count, 200000, { gasLimit: 200000 });
@@ -132,32 +143,59 @@ async function syncHash(count) {
     }
     await new Promise(r => setTimeout(r, 60000));
     const os = await srcContract.knownHashOnions(count);
-    console.log(`Sync hashOnion done: count=${count} chainHead=${chainHead}, knownHashOnion=${os}`);
+    if (chainHead == os) {
+        console.log(`Sync hashOnion successfully from dest to src in 1 min: count=${count}`);
+    }
 }
 
-async function syncHashHistory() {
+async function knownHashOnions() {
     const transCount = await dstContract.transferCount();
     const total = transCount.toNumber();
     console.log("Total transferfrom dst contract", total);
-    for (let i = 0; i < total; i++) {
+    for (let i = 18; i <= total; i++) {
         const known = await srcContract.knownHashOnions(i);
         console.log(`Src knowHashOnion of ${i} is ${known}`);
-        if (known == ethers.constants.HashZero) {
-            await syncHash(i);
-        }
     }
+}
+
+async function status(fromBlock) {
+    let toBlock = fromBlock;
+    try {
+        const curBlock = await srcProvider.getBlockNumber();
+        toBlock = curBlock - 3; //in case of blocks roll back
+        const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
+        console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+        const transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
+        for (let i = 0; i < transferData.length; i++) {
+            const transferDataHash = ethers.utils.keccak256(
+                ethers.utils.defaultAbiCoder.encode([
+                    "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
+                    [transferData[i]]));
+            const status = await srcContract.transferStatus(transferDataHash);
+            console.log(transferDataHash, status.toNumber());
+        }
+    } catch (e) {
+        console.error(e.reason ? e.reason : e);
+    }
+}
+
+
+async function withdrawHistory() {
+    // const transCount = await dstContract.transferCount();
+    // console.log("transferCount", transCount)
+    // await syncHash(transCount);
+    rewardData = require("./rewardData.json").slice(18);
+    await withdraw()
 }
 
 async function main() {
     const curBlock = await srcProvider.getBlockNumber();
     console.log("Current block number", curBlock)
-    const fromBlock = curBlock - 50000;
-    start(fromBlock);
-    withdraw();
-
-
+    const fromBlock = curBlock - 5000;
+    traceDeposit(fromBlock);
+    await new Promise(r => setTimeout(r, 10000));
+    traceClaim(fromBlock);
 }
-
 
 main().catch((error) => {
     console.error(error);
