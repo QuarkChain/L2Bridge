@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "dev": "NODE_ENV=dev node src/lp.js",
+    "start": "NODE_ENV=prod node src/lp.js",
+    "startWithSync": "NODE_ENV=prod node src/lp.js -sync",
+    "syncNow": "NODE_ENV=prod node src/lp.js sync",
+    "withdraw": "NODE_ENV=prod node src/lp.js withdraw"
+  },
   "dependencies": {
     "dotenv": "^16.0.1",
     "ethers": "^5.6.9"

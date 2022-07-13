@@ -1,22 +1,27 @@
 
 const { ethers } = require("ethers");
 require("dotenv").config();
+const deployment = require("../../contract/deployments.json");
 
-const { INFURA_PROJECT_ID, PRIVATE_KEY } = process.env;
+const { INFURA_PROJECT_ID, PRIVATE_KEY, NODE_ENV } = process.env;
+console.log("NODE_ENV", NODE_ENV);
 
-// const srcProvider = new ethers.providers.WebSocketProvider(`wss://rinkeby.infura.io/ws/v3/${INFURA_PROJECT_ID}`, "rinkeby");
-// const srcProvider = new ethers.providers.WebSocketProvider(`wss://optimism-kovan.infura.io/ws/v3/${INFURA_PROJECT_ID}`, "optimism-kovan");
-const srcProvider = new ethers.providers.JsonRpcProvider(`https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`);
-const dstProvider = new ethers.providers.JsonRpcProvider(`https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`);
-const l1Provider = new ethers.providers.StaticJsonRpcProvider(`https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`);
+const GENESIS_BLOCK = NODE_ENV === "prod" ? 1174785 : 0; // Transaction Index on Optimism L2
+const srcRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
+const dstRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
+const l1RPC = NODE_ENV === "prod" ? `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}` : `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
+
+const srcAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeSrc;
+const dstAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeDest;
+const l1Address = NODE_ENV === "prod" ? "" : deployment['42'].bridge;
+
+const srcProvider = new ethers.providers.JsonRpcProvider(srcRPC);
+const dstProvider = new ethers.providers.JsonRpcProvider(dstRPC);
+const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1RPC);
 
 const srcSigner = new ethers.Wallet(PRIVATE_KEY, srcProvider);
 const dstSigner = new ethers.Wallet(PRIVATE_KEY, dstProvider);
 const l1Signer = new ethers.Wallet(PRIVATE_KEY, l1Provider);
-
-const srcAddress = "0x524867916F136b56083b7b1F071d228361A6600E";
-const dstAddress = "0x0AD853E840cCa279F24c59698751aD2635E5c533";
-const l1Address = "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c";
 
 const srcContract = new ethers.Contract(srcAddress, [
     "event Deposit(address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
@@ -31,12 +36,10 @@ const dstContract = new ethers.Contract(dstAddress, [
     "function claim((address srcTokenAddress,address dstTokenAddress,address destination,uint256 amount,uint256 fee,uint256 startTime,uint256 feeRampup, uint256 expiration) memory transferData) public",
     "function declareNewHashChainHead(uint256 count, uint32 maxGas) public",
 ], dstProvider).connect(dstSigner);
-const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public"], l1Provider).connect(l1Signer);
+const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public"],
+    l1Provider).connect(l1Signer);
 
-// let rewardData = [];
-
-
-async function traceDeposit(fromBlock) {
+async function traceDeposit(fromBlock, sync) {
     let toBlock = fromBlock;
     try {
         const curBlock = await srcProvider.getBlockNumber();
@@ -54,15 +57,9 @@ async function traceDeposit(fromBlock) {
                 console.log("the claim is already bought");
                 continue;
             }
-            if (await take(transferData[i])) {
-                // rewardData.push([
-                //     transferDataHash,
-                //     dstSigner.address,
-                //     transferData[i][0],
-                //     transferData[i][3],
-                // ]);
+            if (await take(transferData[i]) && sync) {
                 const transCount = await dstContract.transferCount();
-                await syncHash(transCount);
+                syncHash(transCount);
             }
         }
     } catch (e) {
@@ -72,7 +69,7 @@ async function traceDeposit(fromBlock) {
 }
 
 async function traceClaim(fromBlock) {
-    const rewardData = [];
+    let rewardData = [];
     let toBlock = fromBlock;
     try {
         const curBlock = await srcProvider.getBlockNumber();
@@ -80,17 +77,24 @@ async function traceClaim(fromBlock) {
         const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
         console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Claim`);
         for (r of res) {
-            rewardData.push(r.args);
+            const transferDataHash = r.args[0];
+            const status = await srcContract.transferStatus(transferDataHash);
+            console.log(transferDataHash, status.toNumber());
+            if (status.toNumber() === 1) {
+                rewardData.push(r.args);
+            } else {
+                rewardData = [];
+            }
+            console.log(r.blockNumber, r.args.map(i => String(i)));
         }
-        console.log("rewardData", rewardData.map(r => r.map(i => String(i))));
     } catch (e) {
         console.log("query Claim failed:", e)
     }
     if (rewardData.length > 0) {
-        console.log("start withdraw", rewardData.map(r => r.map(d => String(d))))
+        // console.log("start withdraw", rewardData.map(r => r.map(d => String(d))))
         try {
             const gas = await srcContract.connect(srcSigner).estimateGas.processClaims(rewardData, [0]);
-            console.log("gas", gas.toString())
+            console.log("withdraw gas", gas.toString())
             const tx = await srcContract.connect(srcSigner).processClaims(rewardData, [0], { gasLimit: gas.mul(4).div(3) });
             const receipt = await tx.wait();
             if (receipt.status == 1) {
@@ -100,7 +104,7 @@ async function traceClaim(fromBlock) {
             console.error("withdraw failed:", e.reason ? e.reason : e);
         }
     }
-    setTimeout(() => traceClaim(toBlock), 100 * 1000);
+    // setTimeout(() => traceClaim(toBlock), 100 * 1000);
 }
 
 async function take(transferData) {
@@ -141,18 +145,27 @@ async function syncHash(count) {
     } catch (e) {
         console.error("setChainHashInL2Test failed:", e);
     }
-    await new Promise(r => setTimeout(r, 60000));
-    const os = await srcContract.knownHashOnions(count);
-    if (chainHead == os) {
-        console.log(`Sync hashOnion successfully from dest to src in 1 min: count=${count}`);
+    setTimeout(() => checkSync(count, chainHead), NODE_ENV === 'prod' ? 15 * 60 * 1000 : 5 * 3600 * 1000);
+}
+
+async function checkSync(count, chainHead) {
+    try {
+        const onion = await srcContract.knownHashOnions(count);
+        if (chainHead == onion) {
+            console.log(`Sync hashOnion successfully from dest to src in 1 min: count=${count}`);
+            return true;
+        }
+    } catch (e) {
+        console.error("checkSync failed:", e)
     }
+    return false;
 }
 
 async function knownHashOnions() {
     const transCount = await dstContract.transferCount();
     const total = transCount.toNumber();
     console.log("Total transferfrom dst contract", total);
-    for (let i = 18; i <= total; i++) {
+    for (let i = 19; i <= total; i++) {
         const known = await srcContract.knownHashOnions(i);
         console.log(`Src knowHashOnion of ${i} is ${known}`);
     }
@@ -179,22 +192,35 @@ async function status(fromBlock) {
     }
 }
 
-
-async function withdrawHistory() {
-    // const transCount = await dstContract.transferCount();
-    // console.log("transferCount", transCount)
-    // await syncHash(transCount);
-    rewardData = require("./rewardData.json").slice(18);
-    await withdraw()
-}
-
 async function main() {
-    const curBlock = await srcProvider.getBlockNumber();
-    console.log("Current block number", curBlock)
-    const fromBlock = curBlock - 5000;
-    traceDeposit(fromBlock);
-    await new Promise(r => setTimeout(r, 10000));
-    traceClaim(fromBlock);
+    let sync = false;
+    let withdraw = false;
+    let startBlock = GENESIS_BLOCK;
+    if (process.argv.length > 2) {
+        const args = process.argv.slice(2);
+        if (args[0] === "withdraw") {
+            withdraw = true;
+            if (args.length > 1) {
+                startBlock = args[1];
+            }
+        }
+        if (args[0] === "-sync") {
+            sync = true;
+        }
+        if (args[0] === "sync") {
+            const transCount = await dstContract.transferCount();
+            console.log("transferCount", String(transCount))
+            await syncHash(transCount);
+            return;
+        }
+    }
+    if (withdraw) {
+        await traceClaim(startBlock); //specify block number (Transaction Index) manually
+    } else {
+        const curBlock = await srcProvider.getBlockNumber();
+        console.log("Current block number", curBlock)
+        traceDeposit(curBlock - 50, sync);
+    }
 }
 
 main().catch((error) => {
