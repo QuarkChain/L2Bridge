@@ -1,5 +1,6 @@
 
 const { ethers } = require("ethers");
+const sdk = require("@eth-optimism/sdk")
 require("dotenv").config();
 const deployment = require("../../contract/deployments.json");
 
@@ -7,6 +8,9 @@ const { INFURA_PROJECT_ID, PRIVATE_KEY, NODE_ENV } = process.env;
 console.log("NODE_ENV", NODE_ENV);
 
 const GENESIS_BLOCK = NODE_ENV === "prod" ? 1174785 : 0; // Transaction Index on Optimism L2
+const L2ToL1Delay = NODE_ENV === "prod" ? 7 * 24 * 60 * 60 * 1000 : 60 * 1000;
+const L1ToL2Delay = NODE_ENV === "prod" ? 15 * 60 * 1000 : 5 * 60 * 1000;
+
 const srcRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
 const dstRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
 const l1RPC = NODE_ENV === "prod" ? `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}` : `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
@@ -38,6 +42,12 @@ const dstContract = new ethers.Contract(dstAddress, [
 ], dstProvider).connect(dstSigner);
 const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public"],
     l1Provider).connect(l1Signer);
+
+const dstL1Messenger = new sdk.CrossChainMessenger({
+    l1ChainId: NODE_ENV === 'prod' ? 1 : 42,
+    l1SignerOrProvider: l1Provider,
+    l2SignerOrProvider: dstProvider
+});
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock = fromBlock;
@@ -126,39 +136,57 @@ async function take(transferData) {
 async function syncHash(count) {
     console.log("syncHash for", count.toString());
     let chainHead;
+    let txHash;
     try {
         const tx = await dstContract.declareNewHashChainHead(count, 200000, { gasLimit: 200000 });
         const receipt = await tx.wait();
-        const head = `0x${receipt.events[1].data.slice(-64)}`;
-        console.log("head", head);
-        chainHead = head;
+        if (receipt.status == 1) {
+            chainHead = `0x${receipt.events[1].data.slice(-64)}`;
+            txHash = tx.hash;
+        }
     } catch (e) {
         console.error("declareNewHashChainHead failed:", e);
     }
+    console.log("chainHead", chainHead);
     if (!chainHead) {
+        syncHash(count);
         return;
     }
+    let synced = false;
     try {
-        const tx = await l1Contract.setChainHashInL2Test(count, chainHead, 200000);
+        await new Promise(r => setTimeout(r, L2ToL1Delay + 10 * 1000));
+        let ready = false;
+        const timer = setTimeout(() => {
+            if ((await dstL1Messenger.getMessageStatus(hash)) == sdk.MessageStatus.READY_FOR_RELAY) {
+                ready = true;
+                clearTimeout(timer);
+            }
+        }, 10 * 1000);
+        const tx = await dstL1Messenger.finalizeMessage(txHash);
         const receipt = await tx.wait();
-        console.log("L1 to src MessageSent", receipt.status);
+        if (receipt.status == 1) {
+            console.log("finalizeMessage success!");
+            synced = true;
+        }
     } catch (e) {
-        console.error("setChainHashInL2Test failed:", e);
+        console.error("CrossChainMessenger failed:", e);
     }
-    setTimeout(() => checkSync(count, chainHead), NODE_ENV === 'prod' ? 15 * 60 * 1000 : 5 * 3600 * 1000);
+    if (synced) {
+        setTimeout(() => checkSyncResult(count, chainHead), L1ToL2Delay + 10 * 1000);
+    }
 }
 
-async function checkSync(count, chainHead) {
+async function checkSyncResult(count, chainHead) {
     try {
         const onion = await srcContract.knownHashOnions(count);
         if (chainHead == onion) {
             console.log(`Sync hashOnion successfully from dest to src in 1 min: count=${count}`);
-            return true;
+        } else {
+            console.log("sync hashOnion failed");
         }
     } catch (e) {
-        console.error("checkSync failed:", e)
+        console.error("checkSyncResult failed:", e)
     }
-    return false;
 }
 
 async function knownHashOnions() {
@@ -168,27 +196,6 @@ async function knownHashOnions() {
     for (let i = 19; i <= total; i++) {
         const known = await srcContract.knownHashOnions(i);
         console.log(`Src knowHashOnion of ${i} is ${known}`);
-    }
-}
-
-async function status(fromBlock) {
-    let toBlock = fromBlock;
-    try {
-        const curBlock = await srcProvider.getBlockNumber();
-        toBlock = curBlock - 3; //in case of blocks roll back
-        const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-        console.log(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
-        const transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
-        for (let i = 0; i < transferData.length; i++) {
-            const transferDataHash = ethers.utils.keccak256(
-                ethers.utils.defaultAbiCoder.encode([
-                    "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
-                    [transferData[i]]));
-            const status = await srcContract.transferStatus(transferDataHash);
-            console.log(transferDataHash, status.toNumber());
-        }
-    } catch (e) {
-        console.error(e.reason ? e.reason : e);
     }
 }
 
