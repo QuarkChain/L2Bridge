@@ -35,8 +35,16 @@ module.exports = {
       url: `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
+    goerli: {
+      url: `https://goerli.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
     arbitrum: {
       url: `https://arbitrum-rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    nitro: {
+      url: "https://nitro-devnet.arbitrum.io/rpc",
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     optimisticKovan: {
@@ -52,6 +60,8 @@ module.exports = {
     apiKey: {
       kovan: ETHERSCAN_API_KEY,
       optimisticKovan: OPT_KOVAN_API_KEY,
+      goerli: ETHERSCAN_API_KEY,
+      rinkeby: ETHERSCAN_API_KEY,
     }
   }
 };
