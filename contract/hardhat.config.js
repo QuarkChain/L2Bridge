@@ -16,7 +16,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY} =
+const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY, ARBISCAN_API_KEY} =
   process.env;
 
 /**
@@ -39,7 +39,7 @@ module.exports = {
       url: `https://goerli.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
-    arbitrum: {
+    arbitrumTestnet: {
       url: `https://arbitrum-rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
@@ -62,6 +62,7 @@ module.exports = {
       optimisticKovan: OPT_KOVAN_API_KEY,
       goerli: ETHERSCAN_API_KEY,
       rinkeby: ETHERSCAN_API_KEY,
+      arbitrumTestnet: ARBISCAN_API_KEY,
     }
   }
 };

@@ -1,10 +1,10 @@
 {
   "4": {
-    "bridge": "0x822F6408dF5AF4970D11478A58AA8391C72ec4d5",
+    "bridge": "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3",
     "bridgeArgs": [
       "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
       "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
-      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
+      "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
     ]
   },
   "5": {
@@ -60,14 +60,22 @@
     ]
   },
   "421611": {
-    "bridgeSrc": "0xDe8A7B0d06045642794c1752aBB2358147257E60",
+    "bridgeSrc": "0xe94eE3767876fa4750A31AF94d1B0CA7F47F5DB8",
     "bridgeSrcArgs": [
-      "0x822F6408dF5AF4970D11478A58AA8391C72ec4d5"
+      "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3"
     ],
-    "bridgeDest": "0xD6e82da65Af8D17Ab99f9550F2E1BC7BDC993B76",
+    "bridgeDest": "0x7f089b6A5C3044e5D48d3461cF8c3F5f75C12c15",
     "bridgeDestArgs": [
-      "0x822F6408dF5AF4970D11478A58AA8391C72ec4d5",
+      "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3",
       100
+    ],
+    "tokenSrc": "0xAF8703FC9f1857d637393baECAcE25a5FC202171",
+    "tokenSrcArgs": [
+      "USDC"
+    ],
+    "tokenDest": "0xc13e4d8532B206a0b9B616acD244B1B44312C2E9",
+    "tokenDestArgs": [
+      "USDT"
     ]
   },
   "421612": {

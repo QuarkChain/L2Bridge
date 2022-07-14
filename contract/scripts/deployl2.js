@@ -5,7 +5,7 @@ const fs = require("fs");
 async function main() {
   const provider = ethers.provider;
   const network = await provider.getNetwork();
-  console.log("Deploying L2 Bridge on", network.name, network);
+  console.log("Deploying L2 Bridge on", network.name);
 
   const cfg = require("../deployments.json");
   const chainMap = {
