@@ -1,23 +1,24 @@
-
 const { ethers } = require("ethers");
-const sdk = require("@eth-optimism/sdk")
+const fs = require("fs");
+const sdk = require("@eth-optimism/sdk");
 require("dotenv").config();
 const deployment = require("../../contract/deployments.json");
 
 const { INFURA_PROJECT_ID, PRIVATE_KEY, NODE_ENV } = process.env;
-console.log("NODE_ENV", NODE_ENV);
 
-const GENESIS_BLOCK = NODE_ENV === "prod" ? 1174785 : 0; // Transaction Index on Optimism L2
+const GENESIS_BLOCK = NODE_ENV === "prod" ? 0 : 4785086; // Transaction Index on Optimism L2
 const L2ToL1Delay = NODE_ENV === "prod" ? 7 * 24 * 60 * 60 * 1000 : 60 * 1000;
 const L1ToL2Delay = NODE_ENV === "prod" ? 15 * 60 * 1000 : 5 * 60 * 1000;
 
-const srcRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
-const dstRPC = NODE_ENV === "prod" ? `` : `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
-const l1RPC = NODE_ENV === "prod" ? `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}` : `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
+const srcRPC = NODE_ENV === "prod" ? `` : `https://kovan.optimism.io`;
+const dstRPC = NODE_ENV === "prod" ? `` : `https://kovan.optimism.io`;
+const l1RPC = NODE_ENV === "prod" ? `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}` : `https://kovan.poa.network`;
 
 const srcAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeSrc;
 const dstAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeDest;
 const l1Address = NODE_ENV === "prod" ? "" : deployment['42'].bridge;
+
+const tokens = NODE_ENV === "prod" ? [] : [deployment['69'].tokenSrc, deployment['69'].tokenDest];
 
 const srcProvider = new ethers.providers.JsonRpcProvider(srcRPC);
 const dstProvider = new ethers.providers.JsonRpcProvider(dstRPC);
@@ -35,6 +36,7 @@ const srcContract = new ethers.Contract(srcAddress, [
 ], srcProvider);
 const dstContract = new ethers.Contract(dstAddress, [
     "event Claim(bytes32,address,address,uint256)",
+    "event L2ToL1TxCreated(uint256, bytes32)",
     "function claimedTransferHashes(bytes32) public view returns (bool)",
     "function transferCount() public view returns (uint256)",
     "function claim((address srcTokenAddress,address dstTokenAddress,address destination,uint256 amount,uint256 fee,uint256 startTime,uint256 feeRampup, uint256 expiration) memory transferData) public",
@@ -45,9 +47,12 @@ const l1Contract = new ethers.Contract(l1Address, ["function setChainHashInL2Tes
 
 const dstL1Messenger = new sdk.CrossChainMessenger({
     l1ChainId: NODE_ENV === 'prod' ? 1 : 42,
-    l1SignerOrProvider: l1Provider,
-    l2SignerOrProvider: dstProvider
+    l2ChainId: NODE_ENV === 'prod' ? 10 : 69,
+    l1SignerOrProvider: l1Signer,
+    l2SignerOrProvider: dstSigner
 });
+
+let pendingDstL1Msgs = new Map();
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock = fromBlock;
@@ -69,13 +74,15 @@ async function traceDeposit(fromBlock, sync) {
             }
             if (await take(transferData[i]) && sync) {
                 const transCount = await dstContract.transferCount();
-                syncHash(transCount);
+                const txHash = await syncHashOnion(transCount);
+                pendingDstL1Msgs.set(txHash, { count: transCount.toNumber(), time: Date.now() });
+                triggerL1Msg(txHash, transCount);
             }
         }
     } catch (e) {
         console.error(e.reason ? e.reason : e);
     }
-    setTimeout(() => traceDeposit(toBlock), 30 * 1000);
+    setTimeout(() => traceDeposit(toBlock, sync), 30 * 1000);
 }
 
 async function traceClaim(fromBlock) {
@@ -89,7 +96,7 @@ async function traceClaim(fromBlock) {
         for (r of res) {
             const transferDataHash = r.args[0];
             const status = await srcContract.transferStatus(transferDataHash);
-            console.log(transferDataHash, status.toNumber());
+            console.log(`transferDataHash=${transferDataHash}, status=${status.toNumber()}`);
             if (status.toNumber() === 1) {
                 rewardData.push(r.args);
             } else {
@@ -129,77 +136,142 @@ async function take(transferData) {
     } catch (e) {
         console.error("claim failed:", transferData, e.reason ? e.reason : e);
     }
-    console.log("claim failed: tx=", tx.hash);
+    console.log("claim failed: ", tx?.hash);
     return false;
 }
 
-async function syncHash(count) {
-    console.log("syncHash for", count.toString());
-    let chainHead;
-    let txHash;
+async function syncHashOnion(count) {
+    if (await checkSyncResult(count)) {
+        console.log("already synced to src: count=", count);
+        return;
+    }
+    console.log("syncHashOnion for count", count.toString());
     try {
-        const tx = await dstContract.declareNewHashChainHead(count, 200000, { gasLimit: 200000 });
+        const tx = await dstContract.declareNewHashChainHead(count, 1000000, { gasLimit: 1000000 });
         const receipt = await tx.wait();
         if (receipt.status == 1) {
-            chainHead = `0x${receipt.events[1].data.slice(-64)}`;
-            txHash = tx.hash;
+            const chainHead = `0x${receipt.events[1].data.slice(-64)}`;
+            console.log("chainHead", chainHead);
+            return tx.hash;
         }
     } catch (e) {
         console.error("declareNewHashChainHead failed:", e);
     }
-    console.log("chainHead", chainHead);
-    if (!chainHead) {
-        syncHash(count);
-        return;
-    }
-    let synced = false;
+}
+
+async function triggerL1Msg(txHash) {
     try {
-        await new Promise(r => setTimeout(r, L2ToL1Delay + 10 * 1000));
-        let ready = false;
-        const timer = setTimeout(() => {
-            if ((await dstL1Messenger.getMessageStatus(hash)) == sdk.MessageStatus.READY_FOR_RELAY) {
-                ready = true;
-                clearTimeout(timer);
+        let l2TxTime = Date.now();
+        let count = 0;
+        const item = pendingDstL1Msgs.get(txHash);
+        if (item.time) {
+            l2TxTime = item.time;
+            count = item.count;
+        }
+        const delay = l2TxTime + L2ToL1Delay + 3 * 1000 - Date.now();
+        console.log(`wait for ${delay / 1000 / 3600} hours to finalize on l1`)
+        await new Promise(r => setTimeout(r, delay));
+        while (true) {
+            const state = await dstL1Messenger.getMessageStatus(txHash);
+            if (state === sdk.MessageStatus.READY_FOR_RELAY) {
+                console.log("state", state)
+                break;
             }
-        }, 10 * 1000);
+            await new Promise(r => setTimeout(r, 3 * 1000));
+        }
+        console.log("start finalize");
         const tx = await dstL1Messenger.finalizeMessage(txHash);
         const receipt = await tx.wait();
         if (receipt.status == 1) {
             console.log("finalizeMessage success!");
-            synced = true;
+            if (count > 0) {
+                console.log(`waiting for ${L1ToL2Delay / 1000 / 3600} hours to check on src`)
+                await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
+                if (await checkSyncResult(count)) {
+                    pendingDstL1Msgs.delete(txHash);
+                }
+            }
         }
     } catch (e) {
         console.error("CrossChainMessenger failed:", e);
-    }
-    if (synced) {
-        setTimeout(() => checkSyncResult(count, chainHead), L1ToL2Delay + 10 * 1000);
     }
 }
 
 async function checkSyncResult(count, chainHead) {
     try {
+        console.log(`checkSyncResult on src: count=${count}`);
         const onion = await srcContract.knownHashOnions(count);
-        if (chainHead == onion) {
-            console.log(`Sync hashOnion successfully from dest to src in 1 min: count=${count}`);
-        } else {
-            console.log("sync hashOnion failed");
+        console.log("synced onion on src", onion)
+        if (onion != ethers.constants.HashZero) {
+            if (chainHead && onion == chainHead) {
+                console.log(`Sync hashOnion successfully from dest to src: count=${count}`);
+            }
+            return true;
         }
+        console.log(`onion not on src: count=${count}`);
+        return false;
     } catch (e) {
         console.error("checkSyncResult failed:", e)
     }
 }
 
-async function knownHashOnions() {
-    const transCount = await dstContract.transferCount();
-    const total = transCount.toNumber();
-    console.log("Total transferfrom dst contract", total);
-    for (let i = 19; i <= total; i++) {
-        const known = await srcContract.knownHashOnions(i);
-        console.log(`Src knowHashOnion of ${i} is ${known}`);
+async function approve() {
+    for (let t of tokens) {
+        const erc20Token = new ethers.Contract(t, [
+            "function allowance(address, address) public view returns (uint256)",
+            "function approve(address,uint256) public",
+        ], dstSigner);
+        const allowed = await erc20Token.allowance(dstSigner.address, dstAddress);
+        if (allowed.isZero()) {
+            await erc20Token.approve(dstAddress, ethers.constants.MaxUint256);
+            console.log("approved", t)
+        }
     }
 }
 
+function replacer(key, value) {
+    if (value instanceof Map) {
+        return {
+            dataType: 'Map',
+            value: Array.from(value.entries()), // or with spread: value: [...value]
+        };
+    } else {
+        return value;
+    }
+}
+
+function reviver(key, value) {
+    if (typeof value === 'object' && value !== null) {
+        if (value.dataType === 'Map') {
+            return new Map(value.value);
+        }
+    }
+    return value;
+}
+
+function exitHandler() {
+    console.log("pendingDstL1Msgs", pendingDstL1Msgs)
+    fs.writeFileSync(__dirname + "/pending.json", JSON.stringify(pendingDstL1Msgs, replacer, 2), err => {
+        if (err) {
+            console.log(err);
+        }
+    });
+    process.exit();
+}
+
 async function main() {
+    // only first time
+    // await approve();
+
+    //so the program will not close instantly
+    process.stdin.resume();
+    //do something when app is closing
+    // process.on('exit', () => exitHandler());
+    //catches ctrl+c event
+    process.on('SIGINT', () => exitHandler());
+    //catches uncaught exceptions
+    process.on('uncaughtException', () => exitHandler());
+
     let sync = false;
     let withdraw = false;
     let startBlock = GENESIS_BLOCK;
@@ -215,9 +287,22 @@ async function main() {
             sync = true;
         }
         if (args[0] === "sync") {
+            console.log("sync hash onion now.");
+            const file = __dirname + "/pending.json";
+            if (fs.existsSync(file)) {
+                const tasks = require(file);
+                console.log("tasks", tasks)
+                pendingDstL1Msgs = JSON.parse(JSON.stringify(tasks, replacer), reviver);
+            }
+            // pendingDstL1Msgs.set("0x5823364006ef04b7cb6bed135e70987ecfa68ee9f9c515ebe666a5684cf6457f", { time: Date.now() - 1000 * 60, count: 1 });
+            for (let txHash of pendingDstL1Msgs.keys()) {
+                await triggerL1Msg(txHash);
+            };
             const transCount = await dstContract.transferCount();
             console.log("transferCount", String(transCount))
-            await syncHash(transCount);
+            const txHash = await syncHashOnion(transCount);
+            pendingDstL1Msgs.set(txHash, { time: Date.now(), count: transCount.toNumber() });
+            await triggerL1Msg(txHash, transCount);
             return;
         }
     }
@@ -226,9 +311,15 @@ async function main() {
     } else {
         const curBlock = await srcProvider.getBlockNumber();
         console.log("Current block number", curBlock)
-        traceDeposit(curBlock - 50, sync);
+        traceDeposit(curBlock - 5000, sync);
     }
 }
+
+async function knownHashOnionsL1(count) {
+    const known = await srcContract.knownHashOnions(count);
+    console.log(`L1 knowHashOnion of ${count} is ${known}`);
+}
+
 
 main().catch((error) => {
     console.error(error);
