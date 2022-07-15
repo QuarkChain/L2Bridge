@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@eth-optimism/contracts@0.5.30":
+"@eth-optimism/contracts@0.5.30", "@eth-optimism/contracts@^0.5.30":
   version "0.5.30"
   resolved "https://registry.npmjs.org/@eth-optimism/contracts/-/contracts-0.5.30.tgz#855c3c0a47e7bab54c91459592312699947b71a0"
   integrity sha512-mmB/PeK7ADcQVqLzT7NaDG9tpuPnv7WAF9fcqM8GLIGuVCcyPSWR3TE/MN0fAnQ2Vyffd84+YDjyBLmL1gKepA==
