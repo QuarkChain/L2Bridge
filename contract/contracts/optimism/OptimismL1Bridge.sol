@@ -15,17 +15,12 @@ contract OptimismL1Bridge {
     event MessageSent(
         address indexed target,
         uint256 count,
-        bytes32 chainHash,
-        uint256 maxGas
+        bytes32 chainHash
     );
 
     constructor(
-        address _l2Source,
-        address _l2Target,
         address _messenger
     ) {
-        l2Source = _l2Source;
-        l2Target = _l2Target;
         messenger = iAbs_BaseCrossDomainMessenger(_messenger);
     }
 
@@ -41,7 +36,7 @@ contract OptimismL1Bridge {
 
 
     /// @notice only l2Target can update
-    function updateChainHash(uint256 count, bytes32 chainHash, uint32 maxGas) public {
+    function updateChainHash(uint256 count, bytes32 chainHash) public {
         require(msg.sender == address(messenger), "not from messenger");
         address l2Sender = messenger.xDomainMessageSender();
         require(
@@ -54,7 +49,7 @@ contract OptimismL1Bridge {
             count,
             chainHash
         );
-        messenger.sendMessage(l2Source, data, maxGas);
-        emit MessageSent(l2Source, count, chainHash, maxGas);
+        messenger.sendMessage(l2Source, data, 1000000);
+        emit MessageSent(l2Source, count, chainHash);
     }
 }

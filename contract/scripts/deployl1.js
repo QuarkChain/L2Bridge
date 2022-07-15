@@ -5,11 +5,9 @@ async function main() {
   const provider = ethers.provider;
   const network = await provider.getNetwork();
   console.log("Deploying L1 Bridge on", network.name);
-  const signer = await provider.getSigner();
-  const addr = await signer.getAddress();
 
   const Bridge = await ethers.getContractFactory("OptimismL1Bridge");
-  const bridgeArgs = [addr, addr, "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"];
+  const bridgeArgs = ["0x4361d0F75A0186C05f971c566dC6bEa5957483fD"];
   const bridge = await Bridge.deploy(...bridgeArgs);
   const bridgeAddress = await bridge.address;
   console.log("l1 Bridge deployed to:", bridgeAddress);
