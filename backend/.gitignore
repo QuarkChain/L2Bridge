@@ -93,3 +93,5 @@ Thumbs.db
 #Hardhat files
 cache
 artifacts
+src/storage.json
+src/user.js

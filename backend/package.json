@@ -4,11 +4,11 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=dev node src/lp.js",
-    "start": "NODE_ENV=prod node src/lp.js",
-    "startWithSync": "NODE_ENV=prod node src/lp.js -sync",
+    "dev": "NODE_ENV=dev node src/lp.js -sync -withdraw",
+    "start": "NODE_ENV=prod node src/lp.js -sync -withdraw",
+    "claim": "NODE_ENV=prod node src/lp.js",
     "syncNow": "NODE_ENV=prod node src/lp.js sync",
-    "withdraw": "NODE_ENV=prod node src/lp.js withdraw"
+    "withdrawNow": "NODE_ENV=prod node src/lp.js withdraw"
   },
   "dependencies": {
     "@eth-optimism/sdk": "^1.3.0",
