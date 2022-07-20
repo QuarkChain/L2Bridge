@@ -15,17 +15,12 @@ contract OptimismL1Bridge {
     event MessageSent(
         address indexed target,
         uint256 count,
-        bytes32 chainHash,
-        uint256 maxGas
+        bytes32 chainHash
     );
 
     constructor(
-        address _l2Source,
-        address _l2Target,
         address _messenger
     ) {
-        l2Source = _l2Source;
-        l2Target = _l2Target;
         messenger = iAbs_BaseCrossDomainMessenger(_messenger);
     }
 
@@ -39,33 +34,22 @@ contract OptimismL1Bridge {
         l2Source = _l2Source;
     }
 
-    /// @notice test only.
-    function setChainHashInL2Test(
-        uint256 count,
-        bytes32 chainHash,
-        uint32 maxGas
-    ) public payable {
-        bytes memory data = abi.encodeWithSelector(
-            L2BridgeSource.updateChainHashFromL1.selector,
-            count,
-            chainHash
-        );
-
-        messenger.sendMessage(l2Target, data, maxGas);
-
-        emit MessageSent(l2Target, count, chainHash, maxGas);
-    }
 
     /// @notice only l2Target can update
     function updateChainHash(uint256 count, bytes32 chainHash) public {
         require(msg.sender == address(messenger), "not from messenger");
         address l2Sender = messenger.xDomainMessageSender();
         require(
-            l2Sender == l2Source,
-            "receipt root only updateable by source L2"
+            l2Sender == l2Target,
+            "receipt root only updateable by target L2"
         );
-
-        // Send ...
         knownHashOnions[count] = chainHash;
+        bytes memory data = abi.encodeWithSelector(
+            L2BridgeSource.updateChainHashFromL1.selector,
+            count,
+            chainHash
+        );
+        messenger.sendMessage(l2Source, data, 1000000);
+        emit MessageSent(l2Source, count, chainHash);
     }
 }

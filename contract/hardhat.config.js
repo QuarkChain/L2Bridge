@@ -40,7 +40,8 @@ module.exports = {
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     optimisticKovan: {
-      url: `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
+      chainId: 69,
+      url: `https://kovan.optimism.io/`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
   },
