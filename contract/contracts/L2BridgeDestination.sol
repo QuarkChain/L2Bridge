@@ -17,10 +17,10 @@ contract L2BridgeDestination {
     bytes32[] rewardHashOnionHistoryList;
 
     event Claim(
-        bytes32 transferDataHash,
-        address claimer,
+        bytes32 indexed transferDataHash,
+        address indexed claimer,
         address srcTokenAddress,
-        uint256 amount
+        uint256 indexed amount
     );
 
     constructor(uint256 _gap) {

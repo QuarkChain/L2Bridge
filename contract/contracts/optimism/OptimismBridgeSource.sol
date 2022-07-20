@@ -37,6 +37,6 @@ contract OptimismBridgeSource is L2BridgeSource {
             messenger.xDomainMessageSender() == l1Target,
             "only updateable by L1"
         );
-        knownHashOnions[count] = chainHash;
+        super.updateChainHashFromL1(count, chainHash);
     }
 }

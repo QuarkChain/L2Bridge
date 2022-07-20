@@ -6,11 +6,11 @@
     ]
   },
   "69": {
-    "bridgeSrc": "0x1A6617Af8EdF971078f90f7Ae8A1eA90d146657a",
+    "bridgeSrc": "0xDE58cC16DEFc24E2ed59F69960AeB68266DA0167",
     "bridgeSrcArgs": [
       "0x8F060718C5C3B894217E59063Fd96F07Bb6f7024"
     ],
-    "bridgeDest": "0xC542C65f8ECc3cE1b5C7c46380aaa269e3eB1945",
+    "bridgeDest": "0xAB8489e7f3224bC6C894350467C1aB1DFCFb518B",
     "bridgeDestArgs": [
       "0x8F060718C5C3B894217E59063Fd96F07Bb6f7024",
       100
