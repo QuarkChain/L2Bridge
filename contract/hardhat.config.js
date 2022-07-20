@@ -16,7 +16,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY} =
+const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY } =
   process.env;
 
 /**
@@ -44,6 +44,16 @@ module.exports = {
       url: `https://kovan.optimism.io/`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
+    bobaRinkeby: {
+      chainId: 28,
+      url: `https://rinkeby.boba.network/`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    arbitrumRinkeby: {
+      chainId: 421611,
+      url: `https://rinkeby.arbitrum.io/rpc`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    }
   },
   gasReporter: {
     enabled: REPORT_GAS !== undefined,
