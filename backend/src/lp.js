@@ -9,7 +9,7 @@ const claimedDepositsFile = __dirname + "/claims.json";
 const { NODE_ENV, INFURA_PROJECT_ID, PRIVATE_KEY, MIN_FEE, GAS_PRICE } = process.env;
 
 const claimInterval = 30 * 1000;
-const withdrawInterval = 3600 * 1000;
+const withdrawInterval = 60 * 1000;
 
 const GENESIS_BLOCK = NODE_ENV === "prod" ? 0 : 4819815; // Transaction Index on Optimism L2
 const L2ToL1Delay = NODE_ENV === "prod" ? 7 * 24 * 60 * 60 * 1000 : 60 * 1000;
@@ -95,13 +95,13 @@ async function traceDeposit(fromBlock, sync) {
                     "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
                     [transferData[i]]));
             const [lpFee, bought] = await Promise.all([dstContract.getLPFee(transferData[i]), dstContract.claimedTransferHashes(transferDataHash)]);
-            if (lpFee.lt(ethers.utils.parseEther(MIN_FEE))) {
-                logClaim("skip due to low LP fee:", ethers.utils.formatUnits(lpFee));
-                toBlock = fromBlock; //  will loop again start from current fromBlock;
-                continue;
-            }
             if (bought) {
                 logClaim("the claim is already bought");
+                continue;
+            }
+            if (lpFee.lt(ethers.utils.parseEther(MIN_FEE))) {
+                logClaim("skip due to low LP fee:", ethers.utils.formatUnits(lpFee));
+                // toBlock = fromBlock; //  will loop again start from current fromBlock;
                 continue;
             }
             if (await take(transferData[i])) {
@@ -140,10 +140,10 @@ async function withdraw(interval) {
             claimedDeposits.clear();
         };
     } else {
-        log("withdraw", "not withdraw due to the latest reward data is not synced to src.")
+        log("withdraw", `not withdraw: the latest reward data (count ${count}) is not synced to src.`)
     }
     if (interval > 0) {
-        setTimeout(() => withdraw(toBlock, true), interval);
+        setTimeout(() => withdraw(interval), interval);
     }
 }
 /*
@@ -216,10 +216,10 @@ async function take(transferData) {
             logClaim("claim success");
             return true;
         }
+        logClaim("claim failed: ", tx.hash);
     } catch (e) {
         err("claim", "claim failed:", transferData.map(t => String(t)), e.reason ? e.reason : e);
     }
-    logClaim("claim failed: ", tx?.hash);
     return false;
 }
 
@@ -280,8 +280,12 @@ async function triggerL1Msg(count) {
             }
             await new Promise(r => setTimeout(r, 3 * 1000));
         }
-        logSync("starting finalize");
+        logSync("starting finalize count", count);
         let tx;
+        const gas = await dstL1Messenger.estimateGas.finalizeMessage(txHash);
+        const price = await l1Provider.getGasPrice();
+        const cost = gas.mul(price);
+        logSync(`triggerL1Msg estimate gas &{gas} will cost ${ethers.utils.formatEther(cost)} ether`);
         if (GAS_PRICE > 0) {
             const gasPrice = ethers.utils.parseUnits(GAS_PRICE, "gwei");
             tx = await dstL1Messenger.finalizeMessage(txHash, { gasPrice });
@@ -329,6 +333,7 @@ async function checkSyncResult(count, chainHead) {
 }
 
 async function approve() {
+    logMain("Checking token allowance...")
     for (let t of tokens) {
         const erc20Token = new ethers.Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
@@ -363,6 +368,7 @@ function reviver(key, value) {
 }
 
 function exitHandler() {
+    logMain("Exiting...")
     storage.set("processedBlockDst", processedBlockDst);
     storage.set("processedBlockSrc", processedBlockSrc);
     logMain("storage", storage)
@@ -372,7 +378,7 @@ function exitHandler() {
         }
     });
     logMain("claimedDeposits", claimedDeposits)
-    fs.writeFileSync(__dirname + "/claimedDeposits.json", JSON.stringify(claimedDeposits, replacer, 2), e => {
+    fs.writeFileSync(__dirname + "/claims.json", JSON.stringify(claimedDeposits, replacer, 2), e => {
         if (e) {
             err("main", e);
         }
@@ -440,7 +446,10 @@ async function main() {
     //catches ctrl+c event
     process.on('SIGINT', () => exitHandler());
     //catches uncaught exceptions
-    process.on('uncaughtException', () => exitHandler());
+    process.on('uncaughtException', e => {
+        err("main", e);
+        exitHandler();
+    });
 
     let syncFlag = false;
     let withdrawFlag = false;
@@ -486,20 +495,23 @@ async function main() {
     }
     if (syncFlag) {
         // triger the pending msgs before sync new ones
-        logMain("Finalizing the pending cross layer messages if any");
-        for (let count of storage.keys()) {
-            if (await withdrawn(count)) {
-                logSync("already withdrawn: count=", count);
-                storage.delete(count);
-                continue;
-            }
-            if (await checkSyncResult(count)) {
-                logSync("already synced to src: count=", count);
-                storage.delete(count);
-                continue;
+        logMain("Finalizing the pending cross layer messages if any...");
+        // process only the latest count
+        const count = Math.max(...storage.keys());
+        if (await withdrawn(count)) {
+            logSync("already withdrawn: count=", count);
+            storage.clear();
+        } else if (await checkSyncResult(count)) {
+            logSync("already synced to src: count=", count);
+            storage.clear();
+        } else {
+            for (let k of storage.keys()) {
+                if (k != count) {
+                    storage.delete(k);
+                }
             }
             triggerL1Msg(count);
-        };
+        }
     }
     startBlock = processedBlockSrc ? processedBlockSrc : GENESIS_BLOCK;
     logMain("Staring claim service from block", startBlock, syncFlag ? "with" : "without", "sync");
