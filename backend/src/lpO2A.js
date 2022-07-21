@@ -6,28 +6,23 @@ const deployment = require("../../contract/deployments.json");
 const pendingMsgFile = __dirname + "/storage.json";
 const claimedDepositsFile = __dirname + "/claims.json";
 
-const { NODE_ENV, INFURA_PROJECT_ID, PRIVATE_KEY, MIN_FEE, GAS_PRICE } = process.env;
+const { PRIVATE_KEY, L1_RPC, OP_RPC, AB_RPC, L1_CHAIN_ID, DIRECTION, MIN_FEE, GAS_PRICE, CLAIM_INTERVAL_SECONDS, WITHDRAW_INTERVAL_SECONDS } = process.env;
 
-const claimInterval = 30 * 1000;
-const withdrawInterval = 60 * 1000;
+const claimInterval = CLAIM_INTERVAL_SECONDS * 1000;
+const withdrawInterval = WITHDRAW_INTERVAL_SECONDS * 1000;
 
-const GENESIS_BLOCK = NODE_ENV === "prod" ? 0 : 4819815; // Transaction Index on Optimism L2
-const L2ToL1Delay = NODE_ENV === "prod" ? 7 * 24 * 60 * 60 * 1000 : 60 * 1000;
-const L1ToL2Delay = NODE_ENV === "prod" ? 15 * 60 * 1000 : 5 * 60 * 1000;
+const L2ToL1Delay = L1_CHAIN_ID == 1 ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 1000;
+const L1ToL2Delay = L1_CHAIN_ID == 1 ? 15 * 60 * 1000 : 5 * 60 * 1000;
 
-const srcRPC = NODE_ENV === "prod" ? `` : `https://kovan.optimism.io`;
-const dstRPC = NODE_ENV === "prod" ? `` : `https://kovan.optimism.io`;
-const l1RPC = NODE_ENV === "prod" ? `https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}` : `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`;
 
-const srcAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeSrc;
-const dstAddress = NODE_ENV === "prod" ? "" : deployment['69'].bridgeDest;
-const l1Address = NODE_ENV === "prod" ? "" : deployment['42'].bridge;
+const GENESIS_BLOCK = deployment[L1_CHAIN_ID][DIRECTION].genesisSrc;
+const srcAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeSrc;
+const dstAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeDest;
+const l1Address = deployment[L1_CHAIN_ID][DIRECTION].bridge;
 
-const tokens = NODE_ENV === "prod" ? [] : [deployment['69'].tokenSrc, deployment['69'].tokenDest];
-
-const srcProvider = new ethers.providers.JsonRpcProvider(srcRPC);
-const dstProvider = new ethers.providers.JsonRpcProvider(dstRPC);
-const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1RPC);
+const srcProvider = new ethers.providers.JsonRpcProvider(OP_RPC);
+const dstProvider = new ethers.providers.JsonRpcProvider(AB_RPC);
+const l1Provider = new ethers.providers.StaticJsonRpcProvider(L1_RPC);
 
 const srcSigner = new ethers.Wallet(PRIVATE_KEY, srcProvider);
 const dstSigner = new ethers.Wallet(PRIVATE_KEY, dstProvider);
@@ -53,13 +48,6 @@ const l1Contract = new ethers.Contract(l1Address, [
     "function setChainHashInL2Test(uint256 count,bytes32 chainHash,uint32 maxGas) public",
     "function knownHashOnions(uint256) public view returns (bytes32)",],
     l1Provider).connect(l1Signer);
-
-const dstL1Messenger = new sdk.CrossChainMessenger({
-    l1ChainId: NODE_ENV === 'prod' ? 1 : 42,
-    l2ChainId: NODE_ENV === 'prod' ? 10 : 69,
-    l1SignerOrProvider: l1Signer,
-    l2SignerOrProvider: dstSigner
-});
 
 //pending msg to trigger on L1
 let storage = new Map(); //count => {txHash, timestamp}
@@ -203,6 +191,7 @@ async function doWithdraw(rewardData) {
 
 async function take(transferData) {
     logClaim("starting claim order");
+    const data = transferData.map(t => String(t));
     let tx;
     try {
         if (GAS_PRICE > 0) {
@@ -216,9 +205,9 @@ async function take(transferData) {
             logClaim("claim success");
             return true;
         }
-        logClaim("claim failed: ", tx.hash);
+        err("claim", "tx failed:", data, tx.hash);
     } catch (e) {
-        err("claim", "claim failed:", transferData.map(t => String(t)), e.reason ? e.reason : e);
+        err("claim", "claim failed:", data, e.reason ? e.reason : e);
     }
     return false;
 }
@@ -334,7 +323,8 @@ async function checkSyncResult(count, chainHead) {
 
 async function approve() {
     logMain("Checking token allowance...")
-    for (let t of tokens) {
+    const abTokens = deployment[L1_CHAIN_ID].tokens.map(t => t.Arbitrum);
+    for (let t of abTokens) {
         const erc20Token = new ethers.Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
             "function approve(address,uint256) public",
@@ -436,6 +426,7 @@ async function syncNow() {
 }
 
 async function main() {
+    logMain(`Staring LP services for bridge from Optimism to Arbitrum, L1 chainId = ${L1_CHAIN_ID}`)
     // only first time
     await approve();
 

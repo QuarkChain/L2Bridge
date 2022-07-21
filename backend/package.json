@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=dev node src/lp.js -sync -withdraw",
+    "dev": "node src/lpO2A.js -sync -withdraw",
     "start": "NODE_ENV=prod node src/lp.js -sync -withdraw",
     "claim": "NODE_ENV=prod node src/lp.js",
     "syncNow": "NODE_ENV=prod node src/lp.js sync",

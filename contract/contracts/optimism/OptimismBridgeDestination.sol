@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../L2BridgeDestination.sol";
 import "../L2BridgeSource.sol";
-import "./OptimismL1Bridge.sol";
+import "../L1BridgeO2A.sol";
 
 import "./iAbs_BaseCrossDomainMessenger.sol";
 
@@ -30,12 +30,21 @@ contract OptimismBridgeDestination is L2BridgeDestination {
         messenger = iAbs_BaseCrossDomainMessenger(_messenger);
     }
 
-    function declareNewHashChainHead(uint256 count, uint32 maxGas) public {
+    function declareNewHashChainHead(
+        uint256 count,
+        uint32 maxGas,
+        uint256 maxSubmissionCost,
+        uint256 maxGasTicket,
+        uint256 gasPriceBid
+    ) public {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
         bytes memory data = abi.encodeWithSelector(
-            OptimismL1Bridge.updateChainHash.selector,
+            L1BridgeO2A.updateChainHash.selector,
             actualCount,
-            h
+            h,
+            maxSubmissionCost,
+            maxGasTicket,
+            gasPriceBid
         );
 
         messenger.sendMessage(l1Target, data, maxGas);
