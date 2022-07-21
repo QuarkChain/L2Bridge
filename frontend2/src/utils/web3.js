@@ -99,3 +99,27 @@ export const refund = async (contract, para) => {
   const receipt = await tx.wait();
   return receipt.status;
 }
+
+export const hasClaim = async (event) => {
+  const para = [
+    event.srcToken,
+    event.dstToken,
+    event.destination,
+    event.amount,
+    event.fee,
+    event.startTime,
+    event.feeRampup,
+    event.expiration
+  ];
+  const data = ethers.utils.defaultAbiCoder.encode(['address','address','address','uint256','uint256','uint256','uint256','uint256'],para);
+  const transferDataHash = ethers.utils.keccak256(data);
+
+  const provider = new ethers.providers.JsonRpcProvider(event.destRpc);
+  const bridgeContractDest = new ethers.Contract(event.destContract, BridgeContractInfo.abi, provider);
+  const eventFilter = bridgeContractDest.filters.Claim(transferDataHash);
+  const claimEvents = await bridgeContractDest.queryFilter(eventFilter);
+  return {
+    ...event,
+    isClaim: claimEvents && claimEvents.length > 0,
+  }
+}

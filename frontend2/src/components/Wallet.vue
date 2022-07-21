@@ -79,7 +79,7 @@
 import BigNumber from "bignumber.js";
 import { mapActions } from "vuex";
 import {chainInfos} from "@/store/state";
-import {refundTx, getEventList} from "@/utils/walet";
+import {refundTx, getEventList, queryTxState} from "@/utils/walet";
 import {toTokenUnitsBN} from '@/utils/numbers';
 import Bus from '@/utils/eventBus';
 
@@ -94,6 +94,8 @@ export default {
     currentAccount: null,
 
     showDialog: false,
+    queryList: {},
+    loadInterval: undefined,
   }),
   async created() {
     this.connectWallet();
@@ -102,6 +104,14 @@ export default {
 
     Bus.$on('sendTx', value => {
       this.eventList = [value].concat(this.eventList);
+
+      const list = this.queryList[this.fromChainName];
+      if (list) {
+        this.queryList[this.fromChainName].push(value);
+      } else {
+        this.queryList[this.fromChainName] = [value];
+      }
+      this.startQueryState();
     });
   },
   computed: {
@@ -194,6 +204,7 @@ export default {
     },
     openTxList(){
       this.showDialog = true;
+      this.$asyncComputed.eventList.update();
     },
     closeTxList() {
       this.showDialog = false;
@@ -249,6 +260,29 @@ export default {
     openHash(hash) {
       const url = this.fromChainExplorer + "tx/" + hash;
       window.open(url, "_blank");
+    },
+    startQueryState() {
+      if (this.loadInterval) {
+        return;
+      }
+      this.queryState();
+      this.loadInterval = setInterval(this.queryState, 5 * 60000,); // 5 min
+    },
+    async queryState() {
+      const networkChain = this.fromChainName;
+      const result = await queryTxState(this.queryList[networkChain]);
+      for (const event of result) {
+        if (!event.isClaim) {
+          // remove
+          this.queryList[networkChain] = this.queryList[networkChain]
+              .filter(value => value.hash !== value.hash);
+          // notice
+          const sendAmount = this.amountSrc(event.amount, event.decimals);
+          this.$notify({title: 'Transaction',
+            message: `Bridge from ${networkChain} to ${event.destChainName} ${sendAmount} ${event.symbol.toUpperCase()} successful!`,
+            type: 'success'});
+        }
+      }
     }
   },
 };

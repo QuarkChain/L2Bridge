@@ -385,6 +385,8 @@ export default {
       );
       if (result.state) {
         result.srcContract = contractInfo.src;
+        result.destRpc = contractInfo.destRpc;
+        result.destContract = contractInfo.dest;
         result.destChainName = toChainInfo.chainName;
         result.symbol = this.currentCoin.value;
         result.showProgress = false;

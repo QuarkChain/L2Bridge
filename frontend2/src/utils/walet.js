@@ -1,4 +1,4 @@
-import {refund, depositList, transferStatus} from "./web3";
+import {refund, depositList, transferStatus, hasClaim} from "./web3";
 const { from, mergeMap } = require('rxjs');
 
 export const getEventList = async (bridgeArray, account) => {
@@ -54,19 +54,32 @@ const getEvents = async (bridge, account) => {
 }
 
 export const refundTx = async (contract, srcToken, decToken, account, amount, fee, startTime, feeRampup, expiration) => {
-    let para = {
-        srcTokenAddress: srcToken,
-        dstTokenAddress : decToken,
-        destination: account,
-        amount: amount,
-        fee: fee,
-        startTime: startTime,
-        feeRampup: feeRampup,
-        expiration: expiration
-    };
-    try {
-        return await refund(contract, para);
-    } catch (e) {
-        return false;
+  let para = {
+      srcTokenAddress: srcToken,
+      dstTokenAddress: decToken,
+      destination: account,
+      amount: amount,
+      fee: fee,
+      startTime: startTime,
+      feeRampup: feeRampup,
+      expiration: expiration
+  };
+  try {
+    return await refund(contract, para);
+  } catch (e) {
+    return false;
+  }
+}
+
+export const queryTxState = async (list) => {
+  const eventList = [];
+  return new Promise((resolve,) => {
+    from(list)
+      .pipe(mergeMap(event => hasClaim(event), 20))
+      .subscribe(
+        (info) => {eventList.push(info)},
+        (e) => {console.log(e)},
+        () => { resolve(eventList); });
     }
+  );
 }
