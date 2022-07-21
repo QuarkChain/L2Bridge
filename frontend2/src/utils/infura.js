@@ -1,4 +1,4 @@
-import Web3 from 'frontendnew/src/utils/web3';
+import Web3 from 'web3';
 import erc20Abi from '../abi/erc20.json';
 
 let web3;

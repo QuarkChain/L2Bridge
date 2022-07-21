@@ -3,5 +3,5 @@ html, body, #app {
 }
 
 html {
-    background: url("src/assets/bg.png");
+    background: url("../bg.png");
 }

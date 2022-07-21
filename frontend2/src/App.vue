@@ -12,11 +12,11 @@
       <el-footer class="footer">
         <div class="footer-layout">
           <el-row>
-            <img class="footer-img" src="frontendnew/src/assets/git.png"/>
-            <img class="footer-img" src="frontendnew/src/assets/tweet.png"/>
-            <img class="footer-img" src="frontendnew/src/assets/mid.png"/>
-            <img class="footer-img" src="frontendnew/src/assets/tel.png"/>
-            <img class="footer-img" src="frontendnew/src/assets/dis.png"/>
+            <img class="footer-img" src="./assets/git.png"/>
+            <img class="footer-img" src="./assets/tweet.png"/>
+            <img class="footer-img" src="./assets/mid.png"/>
+            <img class="footer-img" src="./assets/tel.png"/>
+            <img class="footer-img" src="./assets/dis.png"/>
           </el-row>
         </div>
       </el-footer>

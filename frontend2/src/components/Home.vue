@@ -55,7 +55,7 @@
       </div>
     </el-card>
 
-    <img class="replace" src="frontendnew/src/assets/replace.png" @click="onChaneNetwork"/>
+    <img class="replace" src="../assets/replace.png" @click="onChaneNetwork"/>
 
     <!--  to  -->
     <el-card shadow="always" class="from-card">

@@ -25,13 +25,13 @@
           <div class="dialog-item">
             <span class="dialog-item-text">Status：</span>
             <span v-if="item.isSuccess" class="dialog-item-text dialog-success">
-              Completed&#32;&#32;<img width="15" height="15" src="frontendnew/src/assets/success.png"/>
+              Completed&#32;&#32;<img width="15" height="15" src="../assets/success.png"/>
             </span>
             <span v-else-if="isFail(item.state, item.expiration)" class="dialog-item-text dialog-fail">
-              Expired&#32;&#32;<img width="15" height="15" src="frontendnew/src/assets/fail.png"/>
+              Expired&#32;&#32;<img width="15" height="15" src="../assets/fail.png"/>
             </span>
             <span v-else class="dialog-item-text dialog-pending">
-              Pending&#32;&#32;<img width="15" height="15" src="frontendnew/src/assets/pending.png"/>
+              Pending&#32;&#32;<img width="15" height="15" src="../assets/pending.png"/>
             </span>
           </div>
           <div class="dialog-item">
@@ -282,7 +282,7 @@ export default {
   width: 24px;
   margin-right: 20px;
   padding: 0;
-  background-image: url("frontendnew/src/assets/history.png");
+  background-image: url("../assets/history.png");
   background-repeat:no-repeat;
   background-size:100% 100%;
   -moz-background-size:100% 100%;

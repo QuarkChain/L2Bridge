@@ -2,7 +2,7 @@
   <b-navbar class="nav-container">
     <template #brand>
       <b-navbar-item tag="router-link" :to="{ path: '/' }">
-        <img class="logo" src="frontendnew/src/assets/logo.png">
+        <img class="logo" src="../assets/logo.png">
       </b-navbar-item>
     </template>
     <template #end>
