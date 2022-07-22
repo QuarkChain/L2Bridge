@@ -11,7 +11,7 @@ contract ArbitrumBridgeDestination is L2BridgeDestination {
     ArbSys constant arbsys = ArbSys(address(100));
     address public l1Target;
 
-    event L2ToL1TxCreated(uint256 count, bytes32 chainHash);
+    event L2ToL1TxCreated(uint256 count, bytes32 chainHash, uint256 withdrawId);
 
     constructor(address _l1Target, uint256 _gap) L2BridgeDestination(_gap) {
         l1Target = _l1Target;
@@ -22,17 +22,25 @@ contract ArbitrumBridgeDestination is L2BridgeDestination {
         l1Target = _l1Target;
     }
 
-    function declareNewHashChainHead(uint256 count, uint32 maxGas) public {
+    function declareNewHashChainHead(
+        uint256 count,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) public {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
 
         bytes memory data = abi.encodeWithSelector(
             ArbitrumL1Bridge.updateChainHash.selector,
             actualCount,
-            h
+            h,
+            maxSubmissionCost,
+            maxGas,
+            gasPriceBid
         );
 
         uint256 withdrawalId = arbsys.sendTxToL1(l1Target, data);
 
-        emit L2ToL1TxCreated(actualCount, h);
+        emit L2ToL1TxCreated(actualCount, h, withdrawalId);
     }
 }

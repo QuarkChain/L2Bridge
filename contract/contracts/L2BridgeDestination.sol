@@ -19,8 +19,8 @@ contract L2BridgeDestination {
     event Claim(
         bytes32 indexed transferDataHash,
         address indexed claimer,
-        address srcTokenAddress,
-        uint256 indexed amount
+        address indexed srcTokenAddress,
+        uint256 amount
     );
 
     constructor(uint256 _gap) {
@@ -65,7 +65,12 @@ contract L2BridgeDestination {
             amount
         );
 
-        emit Claim(key, msg.sender, transferData.srcTokenAddress, transferData.amount);
+        emit Claim(
+            key,
+            msg.sender,
+            transferData.srcTokenAddress,
+            transferData.amount
+        );
 
         // construct reward data and append it to onion
         L2BridgeLib.RewardData memory rewardData = L2BridgeLib.RewardData({

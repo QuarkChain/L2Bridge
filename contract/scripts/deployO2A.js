@@ -15,24 +15,29 @@ const l1Wallet = new Wallet(PRIVATE_KEY, l1Provider)
 const opWallet = new Wallet(PRIVATE_KEY, opProvider)
 const abWallet = new Wallet(PRIVATE_KEY, abProvider)
 
-console.log("deployer", l1Wallet.address)
+const { chainId } = await l1Provider.getNetwork()
+console.log(`Deploying L2Bridge contracts. L1 chainId=${chainId}, deployer=${l1Wallet.address}`)
+
+const L1Contract = 'L1BridgeO2A'
+const SrcContract = 'OptimismBridgeSource'
+const DstContract = 'ArbitrumBridgeDestination'
 
 const main = async () => {
-    const L1Bridge = (await hre.ethers.getContractFactory('L1BridgeO2A')).connect(l1Wallet)
-    console.log('Deploying L1 L1Bridge')
+    const L1Bridge = (await hre.ethers.getContractFactory(L1Contract)).connect(l1Wallet)
+    console.log(`Deploying ${L1Contract}`)
     const bridgeArgs = [MESSENGER, INBOX]
     const l1Bridge = await L1Bridge.deploy(...bridgeArgs)
     await l1Bridge.deployed()
     console.log(`deployed to ${l1Bridge.address}`)
-    const SrcBridge = (await hre.ethers.getContractFactory('OptimismBridgeSource')).connect(opWallet)
-    console.log('Deploying source bridge on Optimism')
+    const SrcBridge = (await hre.ethers.getContractFactory(SrcContract)).connect(opWallet)
+    console.log(`Deploying ${SrcContract}`)
     const bridgeSrcArgs = [l1Bridge.address]
     const srcBridge = await SrcBridge.deploy(...bridgeSrcArgs)
     await srcBridge.deployed()
     console.log(`deployed to ${srcBridge.address}`)
     const genesisSrc = await opProvider.getBlockNumber()
-    const DstBridge = (await hre.ethers.getContractFactory('ArbitrumBridgeDestination')).connect(abWallet)
-    console.log('Deploying destination bridge on Arbitrum')
+    const DstBridge = (await hre.ethers.getContractFactory(DstContract)).connect(abWallet)
+    console.log(`Deploying ${DstContract}`)
     const bridgeDestArgs = [l1Bridge.address, 100]
     const dstBridge = await DstBridge.deploy(...bridgeDestArgs)
     await dstBridge.deployed()
@@ -42,10 +47,9 @@ const main = async () => {
     const updateL2SourceTx = await l1Bridge.updateL2Source(srcBridge.address);
     await updateL2SourceTx.wait();
     const updateL2TargetTx = await l1Bridge.updateL2Target(dstBridge.address);
-    const receipt = await updateL2TargetTx.wait();
+    await updateL2TargetTx.wait();
     console.log(`updated. src=${srcBridge.address}, dst=${dstBridge.address}`);
 
-    const { chainId } = await l1Provider.getNetwork()
     let cfg = {}
     if (fs.existsSync("deployments.json")) {
         try {

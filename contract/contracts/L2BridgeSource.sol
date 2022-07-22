@@ -23,13 +23,13 @@ contract L2BridgeSource {
     bytes32 processedRewardHashOnion;
 
     event Deposit(
-        address srcTokenAddress,
-        address dstTokenAddress,
+        address indexed srcTokenAddress,
+        address indexed dstTokenAddress,
         address indexed source,
         address destination,
         uint256 amount,
-        uint256 indexed fee,
-        uint256 indexed startTime,
+        uint256 fee,
+        uint256 startTime,
         uint256 feeRampup,
         uint256 expiration
     );
