@@ -34,7 +34,7 @@
             <div class="asset-text card-select-text">{{ fromNetwork.label }}</div>
             <i class="el-icon-arrow-down el-icon--right card-select-caret"></i>
           </div>
-          <div v-else class="asset-select" style="width: 150px">
+          <div v-else class="asset-select card-select-empty">
             <div class="asset-text card-default-text">Select Network</div>
             <i class="el-icon-arrow-down el-icon--right card-default-caret"></i>
           </div>
@@ -69,7 +69,7 @@
             <div class="asset-text card-select-text">{{ toNetwork.label }}</div>
             <i class="el-icon-arrow-down el-icon--right card-select-caret"></i>
           </div>
-          <div v-else class="asset-select" style="width: 150px">
+          <div v-else class="asset-select card-select-empty">
             <div class="asset-text card-default-text">Select Network</div>
             <i class="el-icon-arrow-down el-icon--right card-default-caret"></i>
           </div>
@@ -81,8 +81,8 @@
           </el-dropdown-menu>
         </el-dropdown>
         <div>
-          <span class="input-label">{{ toCoinBalance }}</span>
-          <span class="input-label" style="margin-left: 15px">{{ currentCoin.label }}</span>
+          <span class="input-label" style="margin-left: 10px; margin-right: 10px">{{ toCoinBalance }}</span>
+          <span class="input-label">{{ currentCoin.label }}</span>
         </div>
       </div>
     </el-card>
@@ -198,7 +198,6 @@ export default {
     if (this.loadInterval) {
       clearInterval(this.loadInterval);
     }
-    this.loadData();
     this.loadInterval = setInterval(this.loadData, 10000,);
   },
   computed: {
@@ -536,6 +535,9 @@ export default {
   color: #000000;
   margin-right: 7px;
 }
+.card-select-empty{
+  width: 150px;
+}
 .card-default-text {
   font-size: 15px;
   line-height: 12px;
@@ -634,11 +636,53 @@ export default {
 }
 
 @media screen and (max-width: 420px) {
+  .asset {
+    margin-top: 15px;
+  }
+  .asset-title {
+    font-size: 16px;
+  }
+
+  .from-card {
+    width: 100%;
+    margin-top: 30px;
+    padding: 10px 0;
+  }
+
+  .card-select {
+    width: 135px;
+  }
+  .card-select-empty{
+    width: 135px;
+  }
+  .card-select-text {
+    font-size: 12px;
+    line-height: 12px;
+  }
+  .card-default-text {
+    font-size: 12px;
+    line-height: 12px;
+  }
+
+  .card-input {
+    width: 150px;
+  }
+  .card-input >>> .el-input__inner {
+    font-size: 14px;
+    line-height: 14px;
+    padding-right: 50px;
+  }
+  .input-label {
+    font-size: 14px;
+  }
 }
 </style>
 
 <style>
 .popper__arrow::after {
   border-bottom-color: black !important;
+}
+.navbar-menu {
+  background: #F6F2EC;
 }
 </style>

@@ -18,7 +18,7 @@
                :modal-append-to-body="false"
                @close="closeTxList"
                class="dialog_card"
-               width="560px">
+               :width="isMobile? '95%': '560px'">
       <div slot="title" class="dialog_title">History</div>
       <div v-if="eventList.length>0" class="dialog-list">
         <div class="dialog_layout" v-for="(item) of eventList" :key="item.hash">
@@ -82,6 +82,7 @@ import {chainInfos} from "@/store/state";
 import {refundTx, getEventList, queryTxState} from "@/utils/walet";
 import {toTokenUnitsBN} from '@/utils/numbers';
 import Bus from '@/utils/eventBus';
+import Layout from "@/utils/Layout";
 
 export const XFER_PENDING = 1;
 export const XFER_EXPIRED = 2;
@@ -115,6 +116,9 @@ export default {
     });
   },
   computed: {
+    isMobile() {
+      return Layout.isMobile();
+    },
     accountShort() {
       return this.textShort(this.currentAccount);
     },
@@ -419,5 +423,23 @@ export default {
   color: #999999;
   line-height: 300px;
   font-family: AlibabaPuHuiTiM;
+}
+
+@media screen and (max-width: 420px) {
+  .dialog_title {
+    font-size: 16px;
+    line-height: 16px;
+  }
+
+  .dialog-item-text {
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  .dialog-btn {
+    width: 95px;
+    height: 36px;
+    font-size: 12px;
+  }
 }
 </style>
