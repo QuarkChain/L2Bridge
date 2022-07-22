@@ -8,19 +8,20 @@
    }
   ],
   "O2A": {
-   "genesisSrc": 156435,
-   "bridge": "0xc8dB06Ed1f1764C6b51c464cB6B155439fd41cd4",
+   "genesisSrc": 156795,
+   "genesisDst": 13800348,
+   "bridge": "0x5ad81BDED1197966B07738FD8B21272a993cC1CA",
    "bridgeArgs": [
     "0x04059a546419f54db4bfafFae9d4af3b081C2a8D",
     "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
    ],
-   "bridgeSrc": "0xa00b0Fb98861112eFAaB8c7D061d85b8fc05B94d",
+   "bridgeSrc": "0xd7D90546B2FcCf46864aF9e97c53bDD81908163f",
    "bridgeSrcArgs": [
-    "0xc8dB06Ed1f1764C6b51c464cB6B155439fd41cd4"
+    "0x5ad81BDED1197966B07738FD8B21272a993cC1CA"
    ],
-   "bridgeDest": "0x2cdf86E735F2000ebfF5fC43C078c409294A5DEA",
+   "bridgeDest": "0x583b548680F5a035CFe59FFC4d9422f9197Ae8f3",
    "bridgeDestArgs": [
-    "0xc8dB06Ed1f1764C6b51c464cB6B155439fd41cd4",
+    "0x5ad81BDED1197966B07738FD8B21272a993cC1CA",
     100
    ]
   }

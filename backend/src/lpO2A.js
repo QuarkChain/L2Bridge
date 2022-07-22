@@ -230,8 +230,10 @@ async function triggerL1Msg(count) {
             return;
         }
         const txHash = item.tx;
+        logSync("getTransactionReceipt")
         const receipt = await dstProvider.getTransactionReceipt(txHash)
         const l2Receipt = new L2TransactionReceipt(receipt);
+        logSync("getL2ToL1Messages")
         const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
         const l2ToL1Msg = messages[0];
         if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
@@ -246,13 +248,18 @@ async function triggerL1Msg(count) {
             logSync(`finalizing msg ${txHash} on L1.`);
         }
         await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay)
-        logSync("starting finalize count", count);
 
+        while (true) {
+            const state = await l2ToL1Msg.status(dstProvider);
+            logSync("checking message status", state)
+            if (state === L2ToL1MessageStatus.CONFIRMED) {
+                break;
+            }
+            await new Promise(r => setTimeout(r, 3 * 1000));
+        }
+        logSync("starting finalize count", count);
         const proofInfo = await l2ToL1Msg.getOutboxProof(dstProvider);
-        const gas = await l2ToL1Msg.estimateGas.execute(proofInfo);
-        const price = await l1Provider.getGasPrice();
-        const cost = gas.mul(price);
-        logSync(`triggerL1Msg estimate gas &{gas} will cost ${ethers.utils.formatEther(cost)} ether`);
+        logSync("getOutboxProof", proofInfo.map(p => String(p)));
         let tx;
         if (GAS_PRICE > 0) {
             const gasPrice = ethers.utils.parseUnits(GAS_PRICE, "gwei");
@@ -295,7 +302,7 @@ async function checkSyncResult(count, chainHead) {
             }
             return true;
         }
-        logSync(`onion not on src: count=${count}`);
+        logSync(`onion NOT on src: count=${count}`);
         return false;
     } catch (e) {
         err("sync", "checkSyncResult failed:", e)
