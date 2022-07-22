@@ -18,13 +18,13 @@ const deploy = async (direction) => {
     if (direction === "O2A") {
         srcWallet = opWallet
         dstWallet = abWallet
-        L1Contract = 'L1BridgeO2A'
+        L1Contract = 'L1BridgeA2O' //L1 Bridge's direction is from DstContract to SrcContract
         SrcContract = 'OptimismBridgeSource'
         DstContract = 'ArbitrumBridgeDestination'
     } else {
         srcWallet = abWallet
         dstWallet = opWallet
-        L1Contract = 'L1BridgeA2O'
+        L1Contract = 'L1BridgeO2A'
         SrcContract = 'ArbitrumBridgeSource'
         DstContract = 'OptimismBridgeDestination'
     }
@@ -52,11 +52,12 @@ const deploy = async (direction) => {
     const genesisDst = await dstWallet.provider.getBlockNumber()
 
     console.log('Updating L2 bridge addresses to L1Bridge')
-    const updateL2SourceTx = await l1Bridge.updateL2Source(srcBridge.address);
+     //L1 Bridge's direction is from DstContract to SrcContract
+    const updateL2SourceTx = await l1Bridge.updateL2Source(dstBridge.address);
     await updateL2SourceTx.wait();
-    const updateL2TargetTx = await l1Bridge.updateL2Target(dstBridge.address);
+    const updateL2TargetTx = await l1Bridge.updateL2Target(srcBridge.address);
     await updateL2TargetTx.wait();
-    console.log(`updated. src=${srcBridge.address}, dst=${dstBridge.address}`);
+    console.log(`updated. src=${dstBridge.address}, dst=${srcBridge.address}`);
 
     let cfg = {}
     cfg[chainId] = {}

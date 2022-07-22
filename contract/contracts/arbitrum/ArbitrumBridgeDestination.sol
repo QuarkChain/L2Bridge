@@ -5,7 +5,7 @@ import "arb-shared-dependencies/contracts/ArbSys.sol";
 import "arb-shared-dependencies/contracts/AddressAliasHelper.sol";
 
 import "../L2BridgeDestination.sol";
-import "../L1BridgeO2A.sol";
+import "../L1BridgeA2O.sol";
 
 contract ArbitrumBridgeDestination is L2BridgeDestination {
     ArbSys constant arbsys = ArbSys(address(100));
@@ -31,7 +31,7 @@ contract ArbitrumBridgeDestination is L2BridgeDestination {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
 
         bytes memory data = abi.encodeWithSelector(
-            L1BridgeO2A.updateChainHash.selector,
+            L1BridgeA2O.updateChainHash.selector,
             actualCount,
             h,
             maxSubmissionCost,
