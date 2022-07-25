@@ -95,6 +95,7 @@ async function traceDeposit(fromBlock, sync) {
                 // toBlock = fromBlock; //  will loop again start from current fromBlock;
                 continue;
             }
+            logClaim(`will claim with fee=${ethers.utils.formatUnits(lpFee)}`)
             if (await take(transferData[i])) {
                 const transCount = await dstContract.transferCount();
                 const count = transCount.toNumber();
@@ -120,18 +121,27 @@ async function withdraw(interval) {
         log("withdraw", "no claim records to withdraw.");
         return;
     }
-    const count = Math.max(...claimedDeposits.keys());
-    if (await withdrawn(count)) {
-        log("withdraw", "already withdrawn. count=", count);
-        return;
-    }
-    if (await checkSyncResult(count)) {
-        const rewardData = claimedDeposits.values();
-        if (await doWithdraw(rewardData)) {
-            claimedDeposits.clear();
-        };
-    } else {
-        log("withdraw", `not withdraw: the latest reward data (count ${count}) is not synced to src.`)
+    const maxCount = Math.max(...claimedDeposits.keys());
+    const minCount = Math.min(...claimedDeposits.keys());
+    for (let count = maxCount; count >= minCount; count--) {
+        if (await withdrawn(count)) {
+            log("withdraw", "already withdrawn. count=", count);
+            break;
+        }
+        if (await checkSyncResult(count)) {
+            const rewardDataList = [];
+            for (let i = minCount; i < count; i++) {
+                const rewardData = claimedDeposits.get(i);
+                rewardDataList.push(rewardData);
+            }
+            if (await doWithdraw(rewardDataList)) {
+                for (let i = minCount; i < count; i++) {
+                    claimedDeposits.delete(i);
+                }
+            };
+        } else {
+            log("withdraw", `not withdraw: the latest reward data (count ${count}) is not synced to src.`)
+        }
     }
     if (interval > 0) {
         setTimeout(() => withdraw(interval), interval);
@@ -140,6 +150,7 @@ async function withdraw(interval) {
 
 async function doWithdraw(rewardData) {
     try {
+        logWithdraw(("do withdraw with", rewardData))
         const gas = await srcContract.connect(srcSigner).estimateGas.processClaims(rewardData, [0]);
         logWithdraw("withdraw gas", gas.toString())
         let tx;
@@ -222,44 +233,51 @@ async function withdrawn(count) {
     return false;
 }
 
+
 async function triggerL1Msg(count) {
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
+        logSyncCount("triggering L2 to L1 msg");
         const item = storage.get(count);
         if (!item) {
-            err("sync", "unknown pending msg:", count);
+            err("sync", "unknown pending msg for count", count);
             return;
         }
         const txHash = item.tx;
-        logSync("getTransactionReceipt")
+        logSyncCount("getTransactionReceipt")
         const receipt = await dstProvider.getTransactionReceipt(txHash)
         const l2Receipt = new L2TransactionReceipt(receipt);
-        logSync("getL2ToL1Messages")
+        logSyncCount("getL2ToL1Messages")
         const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
         const l2ToL1Msg = messages[0];
         if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
-            console.log(`Message already executed! Nothing else to do here`);
+            logSyncCount(`Message already executed! Nothing else to do here`);
             storage.delete(count);
             return;
         }
         const delay = item.time + L2ToL1Delay + 3 * 1000 - Date.now();
+        // const delay = 0;
         if (delay > 0) {
-            logSync(`waiting for ${delay / 1000 / 3600} hours to finalize msg ${txHash} on L1.`);
+            logSyncCount(`waiting for ${delay / 1000 / 3600} hours to finalize msg ${txHash} on L1`);
+            await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay);
         } else {
-            logSync(`finalizing msg ${txHash} on L1.`);
+            logSyncCount(`finalizing msg ${txHash} on L1. count=${count}`);
         }
-        await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay)
-
         while (true) {
-            const state = await l2ToL1Msg.status(dstProvider);
-            logSync("checking message status", state)
-            if (state === L2ToL1MessageStatus.CONFIRMED) {
-                break;
+            try {
+                const state = await l2ToL1Msg.status(dstProvider);
+                logSyncCount("checking message status", state);
+                if (state === L2ToL1MessageStatus.CONFIRMED) {
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 3 * 1000));
+            } catch (e) {
+                err("sync", `check status count=${count}`, e.reason);
             }
-            await new Promise(r => setTimeout(r, 3 * 1000));
         }
-        logSync("starting finalize count", count);
+        logSyncCount("starting finalize count", count);
         const proofInfo = await l2ToL1Msg.getOutboxProof(dstProvider);
-        logSync("getOutboxProof", proofInfo.map(p => String(p)));
+        logSyncCount("getOutboxProof", proofInfo.map(p => String(p)));
         let tx;
         if (GAS_PRICE > 0) {
             const gasPrice = ethers.utils.parseUnits(GAS_PRICE, "gwei");
@@ -267,16 +285,20 @@ async function triggerL1Msg(count) {
         } else {
             tx = await l2ToL1Msg.execute(proofInfo);
         }
-        logSync("l2ToL1Msg.execute result tx:", tx.hash)
+        logSyncCount("l2ToL1Msg.execute result tx:", tx.hash)
         const rec = await tx.wait();
         if (rec.status == 1) {
-            logSync("l2ToL1Msg.execute success! count=", count);
+            logSyncCount("l2ToL1Msg.execute success! count=", count);
             if (await knownHashOnionsL1(count)) {
-                logSync("synced to L1 successfully!");
-                logSync(`waiting for ${L1ToL2Delay / 1000 / 3600} hours to check on src`)
+                logSyncCount(`synced to L1 successfully!`);
+                logSyncCount(`waiting for ${L1ToL2Delay / 1000 / 3600} hours to check on src`)
                 await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
-                if (await checkSyncResult(count)) {
-                    storage.delete(count);
+                while (true) {
+                    if (await checkSyncResult(count)) {
+                        storage.delete(count);
+                        break;
+                    }
+                    await new Promise(r => setTimeout(r, 3 * 1000));
                 }
             } else {
                 //should not happen
@@ -286,6 +308,7 @@ async function triggerL1Msg(count) {
     } catch (e) {
         err("sync", "triggerL1Msg failed. count=", count, e.reason ? e.reason : e);
         if (e.reason == "timemout") {
+            logSyncCount(`retry`);
             await triggerL1Msg(count);
         }
     }
@@ -387,15 +410,11 @@ async function knownHashOnionsL1(count) {
 }
 
 
-async function syncNow() {
-    const transCount = await dstContract.transferCount();
-    const count = transCount.toNumber();
-    logSync("Latest transferCount from dst", count);
+async function syncCount(count) {
     if (count == 0) {
         logSync("nothing to sync.");
         return;
     }
-
     if (await withdrawn(count)) {
         logSync("already withdrawn: count=", count);
         return;
@@ -462,7 +481,10 @@ async function main() {
         }
         if (args[0] === "sync") {
             logMain("Start syncing hash onion from dst to src via L1")
-            await syncNow();
+            const transCount = await dstContract.transferCount();
+            const count = transCount.toNumber();
+            logSync("Latest transferCount from dst", count);
+            await syncCount(count);
             logMain("Done sync.");
             process.exit(0);
         }
@@ -479,22 +501,21 @@ async function main() {
     if (syncFlag) {
         // triger the pending msgs before sync new ones
         logMain("Finalizing the pending cross layer messages if any...");
-        // process only the latest count
         if (storage.size > 0) {
-            const count = Math.max(...storage.keys());
-            if (await withdrawn(count)) {
-                logSync("already withdrawn: count=", count);
-                storage.clear();
-            } else if (await checkSyncResult(count)) {
-                logSync("already synced to src: count=", count);
-                storage.clear();
-            } else {
-                for (let k of storage.keys()) {
-                    if (k != count) {
-                        storage.delete(k);
-                    }
+            // TODO: process only the latest count?
+            // const count = Math.max(...storage.keys());
+            for (let count of storage.keys()) {
+                logSync("sync pending count=", count);
+                if (await withdrawn(count)) {
+                    logSync("already withdrawn: count=", count);
+                } else if (await checkSyncResult(count)) {
+                    logSync("already synced to src: count=", count);
+                } else {
+                    //delay with a timeout to avoid nonce conflicts: setTimeout()
+                    setTimeout(() => {
+                        triggerL1Msg(count);
+                    }, count * 3000);
                 }
-                triggerL1Msg(count);
             }
         }
     }
@@ -503,6 +524,7 @@ async function main() {
     traceDeposit(startBlock, syncFlag);
 }
 
+// checkSyncResult(1).catch((error) => {
 main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
