@@ -18,13 +18,13 @@ const deploy = async (direction) => {
     if (direction === "O2A") {
         srcWallet = opWallet
         dstWallet = abWallet
-        L1Contract = 'L1BridgeA2O' //L1 Bridge's direction is from DstContract to SrcContract
+        L1Contract = 'L1BridgeArbitrumOptimism' //L1 Bridge's direction is from DstContract to SrcContract
         SrcContract = 'OptimismBridgeSource'
         DstContract = 'ArbitrumBridgeDestination'
     } else {
         srcWallet = abWallet
         dstWallet = opWallet
-        L1Contract = 'L1BridgeO2A'
+        L1Contract = 'L1BridgeOptimismArbitrum'
         SrcContract = 'ArbitrumBridgeSource'
         DstContract = 'OptimismBridgeDestination'
     }

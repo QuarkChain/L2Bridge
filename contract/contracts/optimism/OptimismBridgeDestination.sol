@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../L2BridgeDestination.sol";
 import "../L2BridgeSource.sol";
-import "../L1BridgeO2A.sol";
+import "../L1BridgeOptimismArbitrum.sol";
 
 import "./iAbs_BaseCrossDomainMessenger.sol";
 
@@ -39,7 +39,7 @@ contract OptimismBridgeDestination is L2BridgeDestination {
     ) public {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
         bytes memory data = abi.encodeWithSelector(
-            L1BridgeO2A.updateChainHash.selector,
+            L1BridgeOptimismArbitrum.updateChainHash.selector,
             actualCount,
             h,
             maxSubmissionCost,
