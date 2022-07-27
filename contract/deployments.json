@@ -8,38 +8,38 @@
    }
   ],
   "O2A": {
-   "genesisSrc": 157911,
-   "genesisDst": 13827098,
-   "bridge": "0xE5826204Bf88b3e27309b48c73B36a1ea2Cc61f6",
+   "genesisSrc": 160343,
+   "genesisDst": 13882441,
+   "bridge": "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
    "bridgeArgs": [
     "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
     "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
    ],
-   "bridgeSrc": "0x2cdf86E735F2000ebfF5fC43C078c409294A5DEA",
+   "bridgeSrc": "0x710fd5cfC7bAa09fB2A10dCc8AEEdF19feBe11DD",
    "bridgeSrcArgs": [
-    "0xE5826204Bf88b3e27309b48c73B36a1ea2Cc61f6"
+    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF"
    ],
-   "bridgeDest": "0x670224410a4742c116aa36beEeC34d77c03BA3a8",
+   "bridgeDest": "0xCe993AD2144be3684180E5836a38aEDAb1B03932",
    "bridgeDestArgs": [
-    "0xE5826204Bf88b3e27309b48c73B36a1ea2Cc61f6",
+    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
     100
    ]
   },
   "A2O": {
-   "genesisSrc": 13842442,
-   "genesisDst": 158934,
-   "bridge": "0x5c3E6e535DAb409366e0530f1Dd1Ab92Cf03bcB6",
+   "genesisSrc": 13889147,
+   "genesisDst": 160656,
+   "bridge": "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
    "bridgeArgs": [
     "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
     "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
    ],
-   "bridgeSrc": "0xbA81396cbb2E806046a3727340980596660BE2e3",
+   "bridgeSrc": "0xc4685f7a059BEdDCd1D1AB5c511e2aDCEa7c5059",
    "bridgeSrcArgs": [
-    "0x5c3E6e535DAb409366e0530f1Dd1Ab92Cf03bcB6"
+    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb"
    ],
-   "bridgeDest": "0x94D034bC26E415f63161b1B2DcA055ff8A954560",
+   "bridgeDest": "0xc308d071f6a4D19e6B1BEd44008EB655498Aa675",
    "bridgeDestArgs": [
-    "0x5c3E6e535DAb409366e0530f1Dd1Ab92Cf03bcB6",
+    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
     100
    ]
   }

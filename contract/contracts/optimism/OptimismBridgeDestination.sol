@@ -30,21 +30,14 @@ contract OptimismBridgeDestination is L2BridgeDestination {
         messenger = iAbs_BaseCrossDomainMessenger(_messenger);
     }
 
-    function declareNewHashChainHead(
-        uint256 count,
-        uint32 maxGas,
-        uint256 maxSubmissionCost,
-        uint256 maxGasTicket,
-        uint256 gasPriceBid
-    ) public {
+    function declareNewHashChainHeadToArbi(uint256 count, uint32 maxGas)
+        public
+    {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
         bytes memory data = abi.encodeWithSelector(
             L1BridgeOptimismArbitrum.updateChainHash.selector,
             actualCount,
-            h,
-            maxSubmissionCost,
-            maxGasTicket,
-            gasPriceBid
+            h
         );
 
         messenger.sendMessage(l1Target, data, maxGas);

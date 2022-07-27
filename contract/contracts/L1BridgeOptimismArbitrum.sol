@@ -30,25 +30,16 @@ contract L1BridgeOptimismArbitrum {
         l2Source = _l2Source;
     }
 
-    /// @notice only l2Target can update
-    function updateChainHash(
+    function setChainHashInL2(
         uint256 count,
-        bytes32 chainHash,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
-    ) public payable {
-        require(msg.sender == address(messenger), "not from op messenger");
-        address l2Sender = messenger.xDomainMessageSender();
-        require(
-            l2Sender == l2Source,
-            "receipt root only updateable by target L2"
-        );
-        knownHashOnions[count] = chainHash;
+    ) public payable returns (uint256) {
         bytes memory data = abi.encodeWithSelector(
             L2BridgeSource.updateChainHashFromL1.selector,
             count,
-            chainHash
+            knownHashOnions[count]
         );
         uint256 ticketID = inbox.createRetryableTicket{value: msg.value}(
             l2Target,
@@ -60,6 +51,19 @@ contract L1BridgeOptimismArbitrum {
             gasPriceBid,
             data
         );
+
         emit RetryableTicketCreated(ticketID);
+        return ticketID;
+    }
+
+    /// @notice only l2Target can update
+    function updateChainHash(uint256 count, bytes32 chainHash) public payable {
+        require(msg.sender == address(messenger), "not from op messenger");
+        address l2Sender = messenger.xDomainMessageSender();
+        require(
+            l2Sender == l2Source,
+            "receipt root only updateable by target L2"
+        );
+        knownHashOnions[count] = chainHash;
     }
 }

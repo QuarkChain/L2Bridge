@@ -23,20 +23,14 @@ contract ArbitrumBridgeDestination is L2BridgeDestination {
     }
 
     function declareNewHashChainHead(
-        uint256 count,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
+        uint256 count
     ) public {
         (uint256 actualCount, bytes32 h) = _declareNewHashChainHead(count);
 
         bytes memory data = abi.encodeWithSelector(
             L1BridgeArbitrumOptimism.updateChainHash.selector,
             actualCount,
-            h,
-            maxSubmissionCost,
-            maxGas,
-            gasPriceBid
+            h
         );
 
         uint256 withdrawalId = arbsys.sendTxToL1(l1Target, data);
