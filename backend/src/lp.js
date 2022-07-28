@@ -46,7 +46,7 @@ const dstContract = new ethers.Contract(dstAddress, [
 ], dstProvider).connect(dstSigner);
 const l1Contract = new ethers.Contract(l1Address, [
     "function knownHashOnions(uint256) public view returns (bytes32)",
-    "function setChainHashInL2(uint256 count,bytes32 chainHash,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceBid) public payable returns (uint256)"
+    "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceBid) public payable returns (uint256)"
 ],
     l1Provider).connect(l1Signer);
 //pending msg to trigger on L1
@@ -302,22 +302,25 @@ async function triggerL1Msg(count) {
             try {
                 if (DIRECTION == "O2A") {
                     const state = await l2ToL1Msg.status(dstProvider);
-                    logSyncCount(`status=${state}; expected: ${L2ToL1MessageStatus.CONFIRMED}`);
+                    logSyncCount(`arbi status=${state}; expected: ${L2ToL1MessageStatus.CONFIRMED}`);
                     if (state === L2ToL1MessageStatus.CONFIRMED) {
                         break;
                     }
                 } else {
                     const state = await dstL1Messenger.getMessageStatus(txHash);
-                    logSyncCount(`status=${state}; expected: ${sdk.MessageStatus.READY_FOR_RELAY}`);
+                    logSyncCount(`op status=${state}; expected: ${sdk.MessageStatus.READY_FOR_RELAY}`);
+                    if (state === sdk.MessageStatus.RELAYED) {
+                        logSyncCount(`relayed`);
+                        // pendingL1Msgs.delete(count);
+                        break;
+                    }
                     if (state === sdk.MessageStatus.READY_FOR_RELAY) {
-                        logSyncCount("message status", state)
                         break;
                     }
                 }
                 await new Promise(r => setTimeout(r, 3 * 1000));
             } catch (e) {
-                err("sync", `check status count=${count}`, e);
-                break;
+                err("sync", `check status count=${count}`, e.reason ? e.reason : e);
             }
         }
         logSyncCount("starting finalize");
@@ -348,22 +351,7 @@ async function triggerL1Msg(count) {
         if (rec.status == 1) {
             logSyncCount("relay message success!");
             if (await knownHashOnionsL1(count)) {
-                logSyncCount("synced to L1 successfully!");
-                if (DIRECTION == "A2O") {
-                    await updateHashToArbitrumFromL1(count);
-                }
-                logSyncCount(`waiting for ${L1ToL2Delay / 1000 / 3600} hours to check on src`)
-                await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
-                while (true) {
-                    if (await checkSyncResult(count)) {
-                        pendingL1Msgs.delete(count);
-                        break;
-                    }
-                    await new Promise(r => setTimeout(r, 3 * 1000));
-                }
-            } else {
-                //should not happen
-                err("sync", `finalize to L1 failed. count=${count}, finalize tx=${tx.hash}`);
+                await postL1Synced(count);
             }
         }
     } catch (e) {
@@ -375,7 +363,26 @@ async function triggerL1Msg(count) {
     }
 }
 
+async function postL1Synced(count) {
+    if (DIRECTION == "A2O") {
+        if (!await updateHashToArbitrumFromL1(count)) {
+            return;
+        }
+    }
+    logSync(`waiting for ${L1ToL2Delay / 1000 / 3600} hours to check on src`)
+    await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
+    while (true) {
+        if (await checkSyncResult(count)) {
+            pendingL1Msgs.delete(count);
+            break;
+        }
+        await new Promise(r => setTimeout(r, 3 * 1000));
+    }
+}
+
 async function updateHashToArbitrumFromL1(count) {
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
+    logSyncCount(`updateHashToArbitrumFromL1`)
     const newBytes = ethers.utils.defaultAbiCoder.encode(
         ['uint256'],
         [count]
@@ -388,65 +395,53 @@ async function updateHashToArbitrumFromL1(count) {
             await l1Provider.getGasPrice(),
             newBytesLength
         )
-
-        console.log(
-            `Current retryable base submission price: ${_submissionPriceWei.toString()}`
-        )
+        logSyncCount(`Current retryable base submission price: ${_submissionPriceWei.toString()}`)
         const submissionPriceWei = _submissionPriceWei.mul(5)
         const gasPriceBid = await srcProvider.getGasPrice()
-        console.log(`L2 gas price: ${gasPriceBid.toString()}`)
-        const ABI = ['function declareNewHashChainHead(uint256 count)']
+        logSyncCount(`L2 gas price: ${gasPriceBid.toString()}`)
+        const ABI = ['function updateChainHashFromL1(uint256 count,bytes32 chainHash)']
         const iface = new ethers.utils.Interface(ABI)
-        const calldata = iface.encodeFunctionData('declareNewHashChainHead', [count])
-
-        const maxGas = await l1ToL2MessageGasEstimate.estimateRetryableTicketGasLimit
-            (
-                l1Address,
-                srcAddress,
-                0,
-                srcSigner.address,
-                srcSigner.address,
-                calldata,
-                ethers.utils.parseEther('1')
-            )
-        const callValue = submissionPriceWei.add(gasPriceBid.mul(maxGas))
-
-        console.log(
-            `Sending hash to L2 with ${callValue.toString()} callValue for L2 fees:`
+        const calldata = iface.encodeFunctionData('updateChainHashFromL1', [ethers.constants.One, ethers.constants.HashZero])
+        logSyncCount(`calldata=${calldata}`)
+        const maxGas = await l1ToL2MessageGasEstimate.estimateRetryableTicketGasLimit(
+            l1Address,
+            srcAddress,
+            0,
+            srcSigner.address,
+            srcSigner.address,
+            calldata,
+            ethers.utils.parseEther('1'),
+            submissionPriceWei,
+            100000,
+            gasPriceBid
         )
+        logSyncCount(`submissionPriceWei=${submissionPriceWei};maxGas=${maxGas}`)
+        const callValue = submissionPriceWei.add(gasPriceBid.mul(maxGas))
+        logSyncCount(`Sending hash to L2 with ${callValue.toString()} callValue for L2 fees:`)
         const setTx = await l1Contract.setChainHashInL2(
             count,
             submissionPriceWei,
             maxGas,
             gasPriceBid,
-            {
-                value: callValue,
-            }
+            { value: callValue, }
         )
         const setRec = await setTx.wait()
-
-        console.log(
-            `Set hash txn confirmed on L1! 🙌 ${setRec.transactionHash}`
-        )
-
+        logSyncCount(`Set hash txn confirmed on L1! 🙌 ${setRec.transactionHash}`)
         const l1TxReceipt = new L1TransactionReceipt(setRec);
-
         const message = await l1TxReceipt.getL1ToL2Message(l1Signer)
-        const status = await message.waitForStatus()
-        console.log(status)
-        if (status === L1ToL2MessageStatus.REDEEMED) {
-            console.log(`L2 retryable txn executed 🥳 ${message.l2TxHash}`)
+        logSyncCount("got L1ToL2Message", String(message.messageNumber))
+        logSyncCount("start waiting for status")
+        const result = await message.waitForStatus()
+        logSyncCount("result", result);
+        if (result.status === L1ToL2MessageStatus.REDEEMED) {
+            logSyncCount(`L2 retryable txn executed 🥳 ${message.l2TxHash}`)
             return true;
         }
-        console.log(
-            `L2 retryable txn failed with status ${L1ToL2MessageStatus[status]}`
-        )
-
+        logSyncCount(`L2 retryable txn FAILED with status ${result.status}`)
     } catch (e) {
-        err("sync", "updateHashToArbitrumFromL1", e)
+        err("sync", "count=", count, "updateHashToArbitrumFromL1", e)
     }
     return false;
-
 }
 
 async function checkSyncResult(count, chainHead) {
@@ -536,7 +531,7 @@ async function knownHashOnionsL1(count) {
         }
     } catch (e) {
         err("sync", "query known hash onion on L1 failed. ", e.reason);
-        return await knownHashOnionsL1(count);
+        // return await knownHashOnionsL1(count);
     }
     return false;
 }
@@ -555,16 +550,21 @@ async function syncCount(count) {
         logSync("already synced to src: count=", count);
         return;
     }
+    if (await knownHashOnionsL1(count)) {
+        logSync("already synced to L1: count=", count);
+        await postL1Synced(count);
+        return;
+    }
     if (pendingL1Msgs.get(count)) {
         logSync("already submit to L1, pending for finalize. count=", count);
         await triggerL1Msg(count);
-    } else {
-        const txHash = await syncHashOnion(count);
-        logSync("sync hash onion from dst chain. txHash=", txHash);
-        if (txHash) {
-            pendingL1Msgs.set(count, { tx: txHash, time: Date.now() });
-            await triggerL1Msg(count);
-        }
+        return;
+    }
+    const txHash = await syncHashOnion(count);
+    logSync("sync hash onion from dst chain. txHash=", txHash);
+    if (txHash) {
+        pendingL1Msgs.set(count, { tx: txHash, time: Date.now() });
+        await triggerL1Msg(count);
     }
 }
 
@@ -610,9 +610,15 @@ async function main() {
         }
         if (args[0] === "sync") {
             logMain("Start syncing hash onion from dst to src via L1")
-            const transCount = await dstContract.transferCount();
-            const count = transCount.toNumber();
-            logSync("Latest transferCount from dst", count);
+            let count = -1;
+            if (args.length > 1) {
+                count = parseInt(args[1]);
+                logSync("with user specified count", count);
+            } else {
+                const transCount = await dstContract.transferCount();
+                count = transCount.toNumber();
+                logSync("with latest transferCount from dst", count);
+            }
             await syncCount(count);
             logMain("Done sync.");
             process.exit(0);
@@ -653,7 +659,7 @@ async function main() {
     traceDeposit(startBlock, syncFlag);
 }
 
-// checkSyncResult(1).catch((error) => {
+// knownHashOnionsL1(1).catch((error) => {
 main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
