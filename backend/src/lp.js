@@ -285,7 +285,6 @@ async function triggerL1Msg(count) {
                 l2ChainId: L1_CHAIN_ID == 1 ? 10 : 28 // boba
             });
         }
-        console.log("dstL1Messenger", dstL1Messenger)
         const delay = item.time + L2ToL1Delay + 3 * 1000 - Date.now();
         // const delay = 0;
         if (delay > 0) {
@@ -297,18 +296,19 @@ async function triggerL1Msg(count) {
                 await new Promise(r => setTimeout(r, delay));
             }
         } else {
-            logSyncCount(`finalizing msg ${txHash} on L1. count=${count}`);
+            logSyncCount(`finalizing msg ${txHash} on L1, checking status...`);
         }
         while (true) {
             try {
                 if (DIRECTION == "O2A") {
                     const state = await l2ToL1Msg.status(dstProvider);
-                    logSyncCount("checking message status", state);
+                    logSyncCount(`status=${state}; expected: ${L2ToL1MessageStatus.CONFIRMED}`);
                     if (state === L2ToL1MessageStatus.CONFIRMED) {
                         break;
                     }
                 } else {
                     const state = await dstL1Messenger.getMessageStatus(txHash);
+                    logSyncCount(`status=${state}; expected: ${sdk.MessageStatus.READY_FOR_RELAY}`);
                     if (state === sdk.MessageStatus.READY_FOR_RELAY) {
                         logSyncCount("message status", state)
                         break;
