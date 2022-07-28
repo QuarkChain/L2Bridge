@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "../L2BridgeDestination.sol";
 import "../L2BridgeSource.sol";
 import "../L1BridgeOptimismArbitrum.sol";
-
 import "./iAbs_BaseCrossDomainMessenger.sol";
 
 contract OptimismBridgeDestination is L2BridgeDestination {

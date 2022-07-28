@@ -1,13 +1,13 @@
 const { ethers } = require("ethers");
-const fs = require("fs");
 const sdk = require("@eth-optimism/sdk");
 const { L2TransactionReceipt, L2ToL1MessageStatus, L1TransactionReceipt, L1ToL2MessageStatus } = require('@arbitrum/sdk');
 const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1ToL2MessageGasEstimator')
-const { hexDataLength } = require('@ethersproject/bytes')
+const { hexDataLength } = require('@ethersproject/bytes');
 require("dotenv").config();
 const deployment = require("../../contract/deployments.json");
+const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus } = require("./utils");
+
 const { PRIVATE_KEY, L1_RPC, OP_RPC, AB_RPC, L1_CHAIN_ID, DIRECTION, MIN_FEE, GAS_PRICE, CLAIM_INTERVAL_SECONDS, WITHDRAW_INTERVAL_SECONDS } = process.env;
-const storageFile = __dirname + `/${DIRECTION}.json`;
 const claimInterval = CLAIM_INTERVAL_SECONDS * 1000;
 const withdrawInterval = WITHDRAW_INTERVAL_SECONDS * 1000;
 
@@ -47,19 +47,14 @@ const dstContract = new ethers.Contract(dstAddress, [
 const l1Contract = new ethers.Contract(l1Address, [
     "function knownHashOnions(uint256) public view returns (bytes32)",
     "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceBid) public payable returns (uint256)"
-],
-    l1Provider).connect(l1Signer);
+], l1Provider).connect(l1Signer);
+
 //pending msg to trigger on L1
 let pendingL1Msgs = new Map(); //count => {txHash, timestamp}
 //claimed deposits need to withdraw on src
 let claimedDeposits = new Map(); //transferHash => count
 let processedBlockDst;
 let processedBlockSrc;
-
-const logMain = (...msg) => log("main", ...msg);
-const logClaim = (...msg) => log("claim", ...msg);
-const logSync = (...msg) => log("sync", ...msg);
-const logWithdraw = (...msg) => log("withdraw", ...msg);
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock;
@@ -114,13 +109,13 @@ async function traceDeposit(fromBlock, sync) {
         }
         processedBlockSrc = toBlock;
     } catch (e) {
-        console.error(e.reason ? e.reason : e);
+        err("claim", e.reason ? e.reason : e);
     }
     setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
 }
 
 async function withdraw(interval) {
-    logWithdraw(`withdraw every ${interval} seconds.`);
+    logWithdraw(`withdraw every ${interval/1000} seconds.`);
     if (claimedDeposits.size === 0) {
         logWithdraw("no claim records to withdraw.");
         return;
@@ -195,7 +190,7 @@ async function take(transferData) {
         }
         err("claim", "tx failed:", data, tx.hash);
     } catch (e) {
-        err("claim", "claim failed:", data, e.reason ? e.reason : e);
+        err("claim", "claim failed:", data,  e);
     }
     return false;
 }
@@ -480,52 +475,16 @@ async function approve() {
     }
 }
 
-function replacer(key, value) {
-    if (value instanceof Map) {
-        return {
-            dataType: 'Map',
-            value: Array.from(value.entries()), // or with spread: value: [...value]
-        };
-    } else {
-        return value;
-    }
-}
-
-function reviver(key, value) {
-    if (typeof value === 'object' && value !== null) {
-        if (value.dataType === 'Map') {
-            return new Map(value.value);
-        }
-    }
-    return value;
-}
-
 function exitHandler() {
-    logMain("Exiting...")
-    const storage = { blockSrc: processedBlockSrc, blockDst: processedBlockDst };
-    storage.syncs = JSON.parse(JSON.stringify(pendingL1Msgs, replacer));
-    storage.claims = JSON.parse(JSON.stringify(claimedDeposits, replacer));
-    // logMain("storage", storage)
-    fs.writeFileSync(storageFile, JSON.stringify(storage, null, 2), e => {
-        if (e) {
-            err("main", e);
-        }
-    });
+    logMain("Exiting...");
+    saveStatus(processedBlockSrc, processedBlockDst, pendingL1Msgs, claimedDeposits);
     process.exit();
-}
-
-function log(module, ...msg) {
-    console.log(new Date().toLocaleString(), `[${module}]`, ...msg);
-}
-
-function err(module, ...msg) {
-    console.error(new Date().toLocaleString(), `[${module}]`, ...msg);
 }
 
 async function knownHashOnionsL1(count) {
     try {
         const known = await l1Contract.knownHashOnions(count);
-        log("sync", `L1 knowHashOnion of ${count} is ${known}`);
+        logSync(`L1 knowHashOnion of ${count} is ${known}`);
         if (known != ethers.constants.HashZero) {
             return true;
         }
@@ -589,15 +548,8 @@ async function main() {
 
     let syncFlag = false;
     let withdrawFlag = false;
-    if (fs.existsSync(storageFile)) {
-        const storage = require(storageFile);
-        // logMain("Storage", storage);
-        const { blockDst, blockSrc, syncs, claims } = storage;
-        processedBlockDst = blockDst;
-        processedBlockSrc = blockSrc;
-        pendingL1Msgs = JSON.parse(JSON.stringify(syncs, replacer), reviver);
-        claimedDeposits = JSON.parse(JSON.stringify(claims, replacer), reviver);
-    }
+    ({ processedBlockSrc, processedBlockDst, pendingL1Msgs, claimedDeposits } = loadStatus());
+    console.log("claimedDeposits", claimedDeposits)
     let startBlock;
     if (process.argv.length > 2) {
         const args = process.argv.slice(2);

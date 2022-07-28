@@ -4,14 +4,14 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "o2a": "DIRECTION=O2A node src/lp.js -sync -withdraw",
-    "claim-o2a": "DIRECTION=O2A node src/lp.js",
-    "sync-o2a": "DIRECTION=O2A node src/lp.js sync",
-    "withdraw-o2a": "DIRECTION=O2A node src/lp.js withdraw",
-    "a2o": "DIRECTION=A2O node src/lp.js -sync -withdraw",
-    "claim-a2o": "DIRECTION=A2O node src/lp.js",
-    "sync-a2o": "DIRECTION=A2O node src/lp.js sync",
-    "withdraw-a2o": "DIRECTION=A2O node src/lp.js withdraw"
+    "o2a": "DIRECTION=O2A node scripts/index.js -sync -withdraw",
+    "claim-o2a": "DIRECTION=O2A node scripts/index.js",
+    "sync-o2a": "DIRECTION=O2A node scripts/index.js sync",
+    "withdraw-o2a": "DIRECTION=O2A node scripts/index.js withdraw",
+    "a2o": "DIRECTION=A2O node scripts/index.js -sync -withdraw",
+    "claim-a2o": "DIRECTION=A2O node scripts/index.js",
+    "sync-a2o": "DIRECTION=A2O node scripts/index.js sync",
+    "withdraw-a2o": "DIRECTION=A2O node scripts/index.js withdraw"
   },
   "dependencies": {
     "@arbitrum/sdk": "^2.0.5",

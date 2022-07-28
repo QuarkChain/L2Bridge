@@ -56,7 +56,7 @@ contract L1BridgeOptimismArbitrum {
         return ticketID;
     }
 
-    /// @notice only l2Target can update
+    /// @notice only l2Source can update
     function updateChainHash(uint256 count, bytes32 chainHash) public payable {
         require(msg.sender == address(messenger), "not from op messenger");
         address l2Sender = messenger.xDomainMessageSender();
