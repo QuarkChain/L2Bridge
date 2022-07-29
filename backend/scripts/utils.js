@@ -1,6 +1,5 @@
 const fs = require("fs");
 const { DIRECTION } = process.env;
-console.log("__dirname", __dirname)
 const storageFile = __dirname + `/../data/${DIRECTION}.json`;
 
 function log(module, ...msg) {

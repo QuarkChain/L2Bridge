@@ -5,16 +5,16 @@
   "license": "MIT",
   "scripts": {
     "o2a": "DIRECTION=O2A node scripts/index.js -sync -withdraw",
-    "claim-o2a": "DIRECTION=O2A node scripts/index.js",
-    "sync-o2a": "DIRECTION=O2A node scripts/index.js sync",
-    "withdraw-o2a": "DIRECTION=O2A node scripts/index.js withdraw",
+    "o2a-claim": "DIRECTION=O2A node scripts/index.js",
+    "o2a-sync": "DIRECTION=O2A node scripts/index.js sync",
+    "o2a-withdraw": "DIRECTION=O2A node scripts/index.js withdraw",
     "a2o": "DIRECTION=A2O node scripts/index.js -sync -withdraw",
-    "claim-a2o": "DIRECTION=A2O node scripts/index.js",
-    "sync-a2o": "DIRECTION=A2O node scripts/index.js sync",
-    "withdraw-a2o": "DIRECTION=A2O node scripts/index.js withdraw"
+    "a2o-claim": "DIRECTION=A2O node scripts/index.js",
+    "a2o-sync": "DIRECTION=A2O node scripts/index.js sync",
+    "a2o-withdraw": "DIRECTION=A2O node scripts/index.js withdraw"
   },
   "dependencies": {
-    "@arbitrum/sdk": "^2.0.5",
+    "@arbitrum/sdk": "^v3.0",
     "@eth-optimism/sdk": "^1.3.0",
     "dotenv": "^16.0.1",
     "ethers": "^5.6.9"

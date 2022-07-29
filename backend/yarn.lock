@@ -2,45 +2,11 @@
 # yarn lockfile v1
 
 
-"@arbitrum/sdk-classic@npm:@arbitrum/sdk@1.1.12":
-  version "1.1.12"
-  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-1.1.12.tgz#2f805a864bd1bcc8a677fcccebab3ca442c28d7d"
-  integrity sha512-s8ku93/wQ9bIMNbO4HWp4+qndzakVc/ppH1l9z4TFHHqNHbD2ejKmiGQeHXdraJsgVs2JnFYVWtq/fVbCB5rDg==
+"@arbitrum/sdk@^v3.0":
+  version "3.0.0-beta.6"
+  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.6.tgz#a36c3e39a7358396b5533f3288125107da6ae59e"
+  integrity sha512-kPCfgj72MeyVcIXQKoztLO29UTcpSbXFzc/S0oDgVNNcHcXp1hWUJqqkVRg0O43P2yKjZRT/I94K0Nj2nZNiiQ==
   dependencies:
-    "@ethersproject/address" "^5.0.8"
-    "@ethersproject/bignumber" "^5.1.1"
-    "@ethersproject/bytes" "^5.0.8"
-    "@typechain/ethers-v5" "9.0.0"
-    "@types/prompts" "^2.0.14"
-    "@types/yargs" "^17.0.9"
-    dotenv "^10.0.0"
-    ethers "^5.1.0"
-    ts-node "^10.2.1"
-    typechain "7.0.0"
-
-"@arbitrum/sdk-nitro@npm:@arbitrum/sdk@3.0.0-beta.3":
-  version "3.0.0-beta.3"
-  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.3.tgz#98ca31c592bc0f5948c1e11f0b90d0ce59fdaef3"
-  integrity sha512-sKjjy6F8lg4DSVY94f3r2ahbv4c4L/B2lb1TTpFU7sdZKSri2rq4pdQUKpeBs4QnXty6Hmd3VLJGlI6YMUN30w==
-  dependencies:
-    "@ethersproject/address" "^5.0.8"
-    "@ethersproject/bignumber" "^5.1.1"
-    "@ethersproject/bytes" "^5.0.8"
-    "@typechain/ethers-v5" "9.0.0"
-    "@types/prompts" "^2.0.14"
-    "@types/yargs" "^17.0.9"
-    dotenv "^10.0.0"
-    ethers "^5.1.0"
-    ts-node "^10.2.1"
-    typechain "7.0.0"
-
-"@arbitrum/sdk@^2.0.5":
-  version "2.0.5"
-  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-2.0.5.tgz#43d749de5c79b212d0e7f80d66f22d2a446baecb"
-  integrity sha512-bZxhk0loeo5poUy8+3zIgFW8ILDzfJWbVmjKzWZ121DYcO/zy0opTug/fPF+C7jdBO76vfLUrEnSeV6h4Rqjyw==
-  dependencies:
-    "@arbitrum/sdk-classic" "npm:@arbitrum/sdk@1.1.12"
-    "@arbitrum/sdk-nitro" "npm:@arbitrum/sdk@3.0.0-beta.3"
     "@ethersproject/address" "^5.0.8"
     "@ethersproject/bignumber" "^5.1.1"
     "@ethersproject/bytes" "^5.0.8"
@@ -498,9 +464,9 @@
     "@types/node" "*"
 
 "@types/prettier@^2.1.1":
-  version "2.6.3"
-  resolved "https://registry.npmjs.org/@types/prettier/-/prettier-2.6.3.tgz#68ada76827b0010d0db071f739314fa429943d0a"
-  integrity sha512-ymZk3LEC/fsut+/Q5qejp6R9O1rMxz3XaRHDV6kX8MrGAhOSPqVARbDi+EZvInBpw+BnCX3TD240byVkOfQsHg==
+  version "2.6.4"
+  resolved "https://registry.npmjs.org/@types/prettier/-/prettier-2.6.4.tgz#ad899dad022bab6b5a9f0a0fe67c2f7a4a8950ed"
+  integrity sha512-fOwvpvQYStpb/zHMx0Cauwywu9yLDmzWiiQBC7gJyq5tYLUXFZvDG7VK1B7WBxxjBJNKFOZ0zLoOQn8vmATbhw==
 
 "@types/prompts@^2.0.14":
   version "2.0.14"

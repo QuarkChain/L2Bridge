@@ -14,7 +14,8 @@ const withdrawInterval = WITHDRAW_INTERVAL_SECONDS * 1000;
 const L2ToL1Delay = L1_CHAIN_ID == 1 ? 7 * 24 * 3600 * 1000 : (DIRECTION == "O2A" ? 24 * 3600 * 1000 : 60 * 1000);
 const L1ToL2Delay = L1_CHAIN_ID == 1 ? (DIRECTION == "O2A" ? 5 * 3600 * 1000 : 15 * 60 * 1000) : 5 * 60 * 1000;
 
-const GENESIS_BLOCK = deployment[L1_CHAIN_ID][DIRECTION].genesisSrc;
+const genesisBlockSrc = deployment[L1_CHAIN_ID][DIRECTION].genesisSrc;
+const genesisBlockDst = deployment[L1_CHAIN_ID][DIRECTION].genesisDst;
 const srcAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeSrc;
 const dstAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeDest;
 const l1Address = deployment[L1_CHAIN_ID][DIRECTION].bridge;
@@ -114,8 +115,8 @@ async function traceDeposit(fromBlock, sync) {
     setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
 }
 
-async function withdraw(interval) {
-    logWithdraw(`withdraw every ${interval/1000} seconds.`);
+async function withdrawRecursive(interval) {
+    logWithdraw(`withdraw every ${interval / 1000} seconds.`);
     if (claimedDeposits.size === 0) {
         logWithdraw("no claim records to withdraw.");
         return;
@@ -128,28 +129,34 @@ async function withdraw(interval) {
             break;
         }
         if (await checkSyncResult(count)) {
-            const rewardDataList = [];
-            for (let i = minCount; i < count; i++) {
-                const rewardData = claimedDeposits.get(i);
-                rewardDataList.push(rewardData);
-            }
-            if (await doWithdraw(rewardDataList)) {
-                for (let i = minCount; i < count; i++) {
-                    claimedDeposits.delete(i);
-                }
-            };
+            await withdrawWithLocalData(minCount, count);
         } else {
             logWithdraw(`not withdraw: the latest reward data (count ${count}) is not synced to src.`)
         }
     }
     if (interval > 0) {
-        setTimeout(() => withdraw(interval), interval);
+        setTimeout(() => withdrawRecursive(interval), interval);
     }
+}
+
+async function withdrawWithLocalData(fromCount, toCount) {
+    logWithdraw(`withdrawWithLocalData from ${fromCount} to ${toCount}`)
+    const rewardDataList = [];
+    for (let i = fromCount; i <= toCount; i++) {
+        const rewardData = claimedDeposits.get(i);
+        logWithdraw(i, rewardData)
+        rewardDataList.push(rewardData);
+    }
+    if (await doWithdraw(rewardDataList)) {
+        for (let i = fromCount; i < toCount; i++) {
+            claimedDeposits.delete(i);
+        }
+    };
 }
 
 async function doWithdraw(rewardData) {
     try {
-        logWithdraw(("do withdraw with", rewardData))
+        logWithdraw("do withdraw with", rewardData)
         const gas = await srcContract.estimateGas.processClaims(rewardData, [0]);
         logWithdraw("withdraw gas", gas.toString())
         let tx;
@@ -190,7 +197,7 @@ async function take(transferData) {
         }
         err("claim", "tx failed:", data, tx.hash);
     } catch (e) {
-        err("claim", "claim failed:", data,  e);
+        err("claim", "claim failed:", data, e);
     }
     return false;
 }
@@ -265,12 +272,16 @@ async function triggerL1Msg(count) {
             const receipt = await dstProvider.getTransactionReceipt(txHash)
             const l2Receipt = new L2TransactionReceipt(receipt);
             logSyncCount("getL2ToL1Messages")
-            const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
-            l2ToL1Msg = messages[0];
-            if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
-                logSyncCount(`Message already executed! Nothing else to do here`);
-                pendingL1Msgs.delete(count);
-                return;
+            try {
+                const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
+                l2ToL1Msg = messages[0];
+                if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
+                    logSyncCount(`Message already executed! Nothing else to do here`);
+                    pendingL1Msgs.delete(count);
+                    return;
+                }
+            } catch (e) {
+                err("sync", e)
             }
         } else {
             dstL1Messenger = new sdk.CrossChainMessenger({
@@ -310,6 +321,7 @@ async function triggerL1Msg(count) {
                         break;
                     }
                     if (state === sdk.MessageStatus.READY_FOR_RELAY) {
+                        logSyncCount(`ready for relay`);
                         break;
                     }
                 }
@@ -330,24 +342,29 @@ async function triggerL1Msg(count) {
                 tx = await l2ToL1Msg.execute(proofInfo);
             }
         } else {
-            const gas = await dstL1Messenger.estimateGas.finalizeMessage(txHash);
-            const price = await l1Provider.getGasPrice();
-            const cost = gas.mul(price);
-            logSyncCount(`triggerL1Msg estimate gas &{gas} will cost ${ethers.utils.formatEther(cost)} ether`);
-            if (GAS_PRICE > 0) {
-                const gasPrice = ethers.utils.parseUnits(GAS_PRICE, "gwei");
-                tx = await dstL1Messenger.finalizeMessage(txHash, { gasPrice });
-            } else {
-                tx = await dstL1Messenger.finalizeMessage(txHash);
+            try {
+                const gas = await dstL1Messenger.estimateGas.finalizeMessage(txHash);
+                const price = await l1Provider.getGasPrice();
+                const cost = gas.mul(price);
+                logSyncCount(`triggerL1Msg estimate gas &{gas} will cost ${ethers.utils.formatEther(cost)} ether`);
+                if (GAS_PRICE > 0) {
+                    const gasPrice = ethers.utils.parseUnits(GAS_PRICE, "gwei");
+                    tx = await dstL1Messenger.finalizeMessage(txHash, { gasPrice });
+                } else {
+                    tx = await dstL1Messenger.finalizeMessage(txHash);
+                }
+            } catch (e) {
+                err("sync", `count=${count} finalizeMessage failed`)
+                throw e
+                // Error: state root for message not yet published but
+                // seems boba relay message automatically.
             }
         }
         logSyncCount("l2ToL1Msg.execute result tx:", tx.hash)
-        const rec = await tx.wait();
-        if (rec.status == 1) {
-            logSyncCount("relay message success!");
-            if (await knownHashOnionsL1(count)) {
-                await postL1Synced(count);
-            }
+        await tx.wait();
+        logSyncCount("relay message success!");
+        if (await knownHashOnionsL1(count)) {
+            await postL1Synced(count);
         }
     } catch (e) {
         err("sync", "triggerL1Msg failed. count=", count, e.reason ? e.reason : e);
@@ -368,7 +385,6 @@ async function postL1Synced(count) {
     await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
     while (true) {
         if (await checkSyncResult(count)) {
-            pendingL1Msgs.delete(count);
             break;
         }
         await new Promise(r => setTimeout(r, 3 * 1000));
@@ -423,14 +439,22 @@ async function updateHashToArbitrumFromL1(count) {
         const setRec = await setTx.wait()
         logSyncCount(`Set hash txn confirmed on L1! 🙌 ${setRec.transactionHash}`)
         const l1TxReceipt = new L1TransactionReceipt(setRec);
-        const message = await l1TxReceipt.getL1ToL2Message(l1Signer)
-        logSyncCount("got L1ToL2Message", String(message.messageNumber))
+        const message = (await l1TxReceipt.getL1ToL2Messages(srcSigner))[0]
         logSyncCount("start waiting for status")
         const result = await message.waitForStatus()
         logSyncCount("result", result);
         if (result.status === L1ToL2MessageStatus.REDEEMED) {
             logSyncCount(`L2 retryable txn executed 🥳 ${message.l2TxHash}`)
             return true;
+        }
+        if (result.status === L1ToL2MessageStatus.FUNDS_DEPOSITED_ON_L2) {
+            logSyncCount("redeem");
+            const response = await message.redeem()
+            const receipt = await response.wait()
+            if (receipt.status == 1) {
+                logSyncCount("redeem successfully");
+                return true;
+            }
         }
         logSyncCount(`L2 retryable txn FAILED with status ${result.status}`)
     } catch (e) {
@@ -440,20 +464,22 @@ async function updateHashToArbitrumFromL1(count) {
 }
 
 async function checkSyncResult(count, chainHead) {
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
-        logSync(`checkSyncResult on src: count=${count}`);
+        logSyncCount(`checkSyncResult on src`);
         const onion = await srcContract.knownHashOnions(count);
         if (onion != ethers.constants.HashZero) {
-            logSync("synced onion on src", onion)
+            logSyncCount("synced onion on src", onion)
+            pendingL1Msgs.delete(count);
             if (chainHead && onion == chainHead) {
-                logSync(`Sync hashOnion successfully from dest to src: count=${count}`);
+                logSync(`Sync hashOnion successfully from dest to src`);
             }
             return true;
         }
-        logSync(`onion NOT on src: count=${count}`);
+        logSyncCount(`onion NOT on src`);
         return false;
     } catch (e) {
-        err("sync", "checkSyncResult failed:", e)
+        err("sync", `count=${count} checkSyncResult failed: `, e)
     }
 }
 
@@ -554,9 +580,9 @@ async function main() {
     if (process.argv.length > 2) {
         const args = process.argv.slice(2);
         if (args[0] === "withdraw") {
-            // startBlock = processedBlockDst ? processedBlockDst : GENESIS_BLOCK;
+            // startBlock = processedBlockDst ? processedBlockDst : genesisBlockSrc;
             logMain("Start withdrawing funds from source contract according to local claim record: ", claimedDeposits);
-            await withdraw(0);
+            await withdrawRecursive(0);
             logMain("Done withdraw.");
             process.exit(0);
         }
@@ -569,7 +595,7 @@ async function main() {
             } else {
                 const transCount = await dstContract.transferCount();
                 count = transCount.toNumber();
-                logSync("with latest transferCount from dst", count);
+                logSync("with latest claimed count from dst", count);
             }
             await syncCount(count);
             logMain("Done sync.");
@@ -583,7 +609,7 @@ async function main() {
         }
     }
     if (withdrawFlag) {
-        withdraw(withdrawInterval);
+        withdrawRecursive(withdrawInterval);
     }
     if (syncFlag) {
         // triger the pending msgs before sync new ones
@@ -606,12 +632,48 @@ async function main() {
             }
         }
     }
-    startBlock = processedBlockSrc ? processedBlockSrc : GENESIS_BLOCK;
+    startBlock = processedBlockSrc ? processedBlockSrc : genesisBlockSrc;
     logMain("Staring claim service from block", startBlock, syncFlag ? "with" : "without", "sync");
     traceDeposit(startBlock, syncFlag);
 }
 
+async function retrieveRewardData(fromBlock, toBlock, number) {
+    let rewardData = [];
+    try {
+        if (!toBlock) {
+            toBlock = await srcProvider.getBlockNumber();
+        }
+        const res = await dstContract.queryFilter(dstContract.filters.Claim(null, dstSigner.address), fromBlock, toBlock);
+        logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claim`);
+        let i = 1;
+        for (r of res) {
+            const transferDataHash = r.args[0];
+            const status = await srcContract.transferStatus(transferDataHash);
+            logWithdraw(`transferDataHash=${transferDataHash}, status=${status.toNumber()}`);
+            if (status.toNumber() === 1) {
+                rewardData.push(r.args);
+            } else {
+                rewardData = [];
+            }
+            logWithdraw(i++, r.blockNumber, r.args.map(i => String(i)));
+            if (i > number) {
+                break;
+            }
+        }
+    } catch (e) {
+        err("withdraw", "query Claim failed:", e);
+    }
+    // processedBlockDst = toBlock;
+    return rewardData;
+}
+
+async function retreiveWithdraw() {
+    const data = await retrieveRewardData(genesisBlockDst, genesisBlockDst + 5000, 8)
+    await doWithdraw(data);
+}
 // knownHashOnionsL1(1).catch((error) => {
+// checkSyncResult(8).catch((error) => {
+// retreiveWithdraw().catch((error) => {
 main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
