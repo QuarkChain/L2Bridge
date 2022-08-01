@@ -43,5 +43,50 @@
     100
    ]
   }
+ },
+ "5": {
+  "tokens": [
+   {
+    "name": "TEST",
+    "Optimism": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+    "Arbitrum": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325"
+   }
+  ],
+  "O2A": {
+   "genesisSrc": 206689,
+   "genesisDst": 11743,
+   "bridge": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+   "bridgeArgs": [
+    "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
+    "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
+   ],
+   "bridgeSrc": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325",
+   "bridgeSrcArgs": [
+    "0x5988BF57bada5Ac355c5f49C5ba1215790556057"
+   ],
+   "bridgeDest": "0x5BAfD5BD6B88f23244a07494aDA9BBBdef12F7AC",
+   "bridgeDestArgs": [
+    "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+    100
+   ]
+  },
+  "A2O": {
+   "genesisSrc": 11785,
+   "genesisDst": 209452,
+   "bridge": "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+   "bridgeArgs": [
+    "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
+    "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
+   ],
+   "bridgeSrc": "0xeF61892EeD4F4F67DFb8F273B1a8be0CAAd903ee",
+   "bridgeSrcArgs": [
+    "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7"
+   ],
+   "bridgeDest": "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+   "bridgeDestArgs": [
+    "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+    100
+   ]
+  }
  }
 }

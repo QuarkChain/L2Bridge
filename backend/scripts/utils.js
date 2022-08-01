@@ -1,6 +1,6 @@
 const fs = require("fs");
-const { DIRECTION } = process.env;
-const storageFile = __dirname + `/../data/${DIRECTION}.json`;
+const { L1_CHAIN_ID, DIRECTION } = process.env;
+const storageFile = __dirname + `/../data/${L1_CHAIN_ID}/${DIRECTION}.json`;
 
 function log(module, ...msg) {
     console.log(new Date().toLocaleString(), `[${module}]`, ...msg);
@@ -61,9 +61,9 @@ const loadStatus = () => {
         pendingL1Msgs = JSON.parse(JSON.stringify(syncs, replacer), reviver);
         claimedDeposits = JSON.parse(JSON.stringify(claims, replacer), reviver);
     } else {
-        const dir = __dirname + `/../data/`;
+        const dir = __dirname + `/../data/${L1_CHAIN_ID}/`;
         if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir);
+            fs.mkdirSync(dir, { recursive: true });
         }
     }
     return { processedBlockSrc, processedBlockDst, pendingL1Msgs, claimedDeposits }

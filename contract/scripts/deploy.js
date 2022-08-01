@@ -52,7 +52,7 @@ const deploy = async (direction) => {
     const genesisDst = await dstWallet.provider.getBlockNumber()
 
     console.log('Updating L2 bridge addresses to L1Bridge')
-     //L1 Bridge's direction is from DstContract to SrcContract
+    //L1 Bridge's direction is from DstContract to SrcContract
     const updateL2SourceTx = await l1Bridge.updateL2Source(dstBridge.address);
     await updateL2SourceTx.wait();
     const updateL2TargetTx = await l1Bridge.updateL2Target(srcBridge.address);
@@ -60,13 +60,15 @@ const deploy = async (direction) => {
     console.log(`updated. src=${dstBridge.address}, dst=${srcBridge.address}`);
 
     let cfg = {}
-    cfg[chainId] = {}
     if (fs.existsSync("deployments.json")) {
         try {
             cfg = require("../deployments.json");
         } catch (e) {
             console.log(e)
         }
+    }
+    if (!cfg[chainId]) {
+        cfg[chainId] = {}
     }
     cfg[chainId][direction] = {
         genesisSrc,
