@@ -12,21 +12,16 @@ const abWallet = new Wallet(PRIVATE_KEY, abProvider)
 const amount = ethers.utils.parseEther("100000000")
 async function main() {
   const Token = await ethers.getContractFactory("TestERC20");
-  // const test = await Token.attach("0xeF61892EeD4F4F67DFb8F273B1a8e0CAAd903ee")
-  // console.log("name", await test.name({ gasLimit: 3000000 }))
   const opToken = await Token.connect(opWallet).deploy();
   await opToken.deployed();
   console.log("TEST on OP:", opToken.address);
-  // const opTx = await test.mint(opWallet.address, amount, { gasLimit: 3000000 });
-  const opTx = await opToken.mint(opWallet.address, amount, { gasLimit: 3000000 });
-  console.log("tx", opTx.hash)
-  const r = await opTx.wait();
-  console.log("rec", r.status)
-  // const abToken = await Token.connect(abWallet).deploy();
-  // await abToken.deployed();
-  // console.log("TEST on AB:", abToken.address);
-  // const abTx = await abToken.mint(abWallet.address, amount);
-  // await abTx.wait();
+  const opTx = await opToken.mint(opWallet.address, amount);
+  await opTx.wait();
+  const abToken = await Token.connect(abWallet).deploy();
+  await abToken.deployed();
+  console.log("TEST on AB:", abToken.address);
+  const abTx = await abToken.mint(abWallet.address, amount);
+  await abTx.wait();
 }
 
 // We recommend this pattern to be able to use async/await everywhere
