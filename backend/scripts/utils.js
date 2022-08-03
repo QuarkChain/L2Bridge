@@ -3,11 +3,11 @@ const { L1_CHAIN_ID, DIRECTION } = process.env;
 const storageFile = __dirname + `/../data/${L1_CHAIN_ID}/${DIRECTION}.json`;
 
 function log(module, ...msg) {
-    console.log(new Date().toLocaleString(), `[${module}]`, ...msg);
+    console.log(new Date().toLocaleString().replace(', ', '|').replace(' ', ''), `[${module}]`, ...msg);
 }
 
 function err(module, ...msg) {
-    console.error(new Date().toLocaleString(), `[${module}]`, ...msg);
+    console.error(new Date().toLocaleString().replace(', ', '|').replace(' ', ''), `[${module}]`, ...msg);
 }
 
 const logMain = (...msg) => log("main", ...msg);
@@ -19,7 +19,7 @@ function replacer(key, value) {
     if (value instanceof Map) {
         return {
             dataType: 'Map',
-            value: Array.from(value.entries()), // or with spread: value: [...value]
+            value: [...value]
         };
     } else {
         return value;
@@ -35,10 +35,9 @@ function reviver(key, value) {
     return value;
 }
 
-const saveStatus = (blockSrc, blockDst, pendingL1Msgs, claimedDeposits) => {
-    const storage = { blockSrc, blockDst };
+const saveStatus = (blockSrc, blockDst, lastCount, pendingL1Msgs) => {
+    const storage = { blockSrc, blockDst, lastCount };
     storage.syncs = JSON.parse(JSON.stringify(pendingL1Msgs, replacer));
-    storage.claims = JSON.parse(JSON.stringify(claimedDeposits, replacer));
     // logMain("storage", storage)
     fs.writeFileSync(storageFile, JSON.stringify(storage, null, 2), e => {
         if (e) {
@@ -50,23 +49,23 @@ const saveStatus = (blockSrc, blockDst, pendingL1Msgs, claimedDeposits) => {
 const loadStatus = () => {
     let processedBlockSrc;
     let processedBlockDst;
+    let processedCount;
     let pendingL1Msgs = new Map();
-    let claimedDeposits = new Map();
     if (fs.existsSync(storageFile)) {
         const storage = require(storageFile);
         // logMain("Storage", storage);
-        const { blockDst, blockSrc, syncs, claims } = storage;
+        const { blockDst, blockSrc, lastCount, syncs } = storage;
         processedBlockDst = blockDst;
         processedBlockSrc = blockSrc;
+        processedCount = lastCount;
         pendingL1Msgs = JSON.parse(JSON.stringify(syncs, replacer), reviver);
-        claimedDeposits = JSON.parse(JSON.stringify(claims, replacer), reviver);
     } else {
         const dir = __dirname + `/../data/${L1_CHAIN_ID}/`;
-        if (!fs.existsSync(dir)){
+        if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
     }
-    return { processedBlockSrc, processedBlockDst, pendingL1Msgs, claimedDeposits }
+    return { processedBlockSrc, processedBlockDst, processedCount, pendingL1Msgs }
 }
 
 module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus };
