@@ -52,6 +52,9 @@ const l1Contract = new Contract(l1Address, [
     "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceBid) public payable returns (uint256)"
 ], l1Provider).connect(l1Signer);
 
+const iface = new utils.Interface(['function updateChainHashFromL1(uint256 count,bytes32 chainHash)']);
+const calldata = iface.encodeFunctionData('updateChainHashFromL1', [constants.One, constants.HashZero]);
+
 //pending msg to trigger on L1
 let pendingL1Msgs = new Map(); //count => {txHash, timestamp}
 let processedBlockDst;
@@ -382,7 +385,7 @@ async function triggerL1MsgArbitrum(count) {
 }
 
 async function waitSyncedToL2(count) {
-    logSync(`waiting for ${L1ToL2Delay / 60 / 1000} minuts to check on src`)
+    logSync(`count=${count} waiting for ${L1ToL2Delay / 60 / 1000} minutes to check on src`)
     await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
     while (true) {
         if (await checkSyncResult(count)) {
@@ -402,26 +405,23 @@ async function processWithdraw(count) {
 
 async function updateHashToArbitrumFromL1(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
-    logSyncCount(`updateHashToArbitrumFromL1`)
+    logSyncCount(`updateHashToArbitrumFromL1`);
     const newBytes = utils.defaultAbiCoder.encode(
         ['uint256'],
         [count]
-    )
+    );
     const newBytesLength = hexDataLength(newBytes) + 4 // 4 bytes func identifier
     try {
-        const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(srcProvider)
+        const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(srcProvider);
         const _submissionPriceWei = await l1ToL2MessageGasEstimate.estimateSubmissionFee(
             l1Provider,
             await l1Provider.getGasPrice(),
             newBytesLength
-        )
-        logSyncCount(`Current retryable base submission price: ${utils.formatUnits(_submissionPriceWei), "gwei"} gwei`)
-        const submissionPriceWei = _submissionPriceWei.mul(5)
-        const gasPriceBid = await srcProvider.getGasPrice()
-        logSyncCount(`L2 gas price: ${utils.formatUnits(gasPriceBid), "gwei"} gwei`)
-        const ABI = ['function updateChainHashFromL1(uint256 count,bytes32 chainHash)']
-        const iface = new utils.Interface(ABI)
-        const calldata = iface.encodeFunctionData('updateChainHashFromL1', [constants.One, constants.HashZero])
+        );
+        logSyncCount(`Current retryable base submission price: ${utils.formatUnits(_submissionPriceWei, "gwei")} gwei`);
+        const submissionPriceWei = _submissionPriceWei.mul(5);
+        const gasPriceBid = await srcProvider.getGasPrice();
+        logSyncCount(`L2 gas price: ${utils.formatUnits(gasPriceBid, "gwei")} gwei`);
         const maxGas = await l1ToL2MessageGasEstimate.estimateRetryableTicketGasLimit(
             l1Address,
             srcAddress,
@@ -434,7 +434,6 @@ async function updateHashToArbitrumFromL1(count) {
             100000,
             gasPriceBid
         )
-        logSyncCount(`submissionPriceWei=${submissionPriceWei};maxGas=${maxGas}`)
         const callValue = submissionPriceWei.add(gasPriceBid.mul(maxGas))
         logSyncCount(`Sending hash to L2 with ${utils.formatEther(callValue)} ether callValue for L2 fees.`)
         const setTx = await l1Contract.setChainHashInL2(
