@@ -10,15 +10,16 @@ yarn
 
 ## Usage Examples
 ```sh
-# run service to watch user deposits on source chain (Optimism) and claim, sync proofs, as well as withdraw funds on target chain (Arbitrum) as soon as sync finishes.
+# start a service to watch user deposits on source chain (Optimism) and claim, sync proofs, as well as withdraw funds on target chain (Arbitrum) as soon as sync finishes.
 yarn o2a
-# run service like above but in the other direction (Arbitrum to Optimism)
+# start a service like above but in the other direction (Arbitrum to Optimism)
 yarn a2o
-# run service to watch user deposits on source chain (Arbitrum) and claim on target chain (Optimism); no sync and withdraw.
+# start a service to watch user deposits on source chain (Arbitrum) and claim on target chain (Optimism); no sync and withdraw.
 yarn a2o-claim
-# start a one time task trying to sync the 6th proof and withdraw
+# execute a one time task trying to sync the 6th proof and withdraw
 yarn o2a-sync 6
-# start a one time task to sync the latest claimed count and withdraw
+# execute a one time task to sync the latest claimed count and withdraw
 yarn o2a-sync
+# execute a one time task to list the status of each claimed count that is being synced
+yarn o2a-status
 ...
-
