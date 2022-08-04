@@ -2,7 +2,7 @@ const { ethers } = require("ethers");
 const { utils, constants, providers, Wallet, Contract } = ethers;
 const sdk = require("@eth-optimism/sdk");
 const { L2TransactionReceipt, L2ToL1MessageStatus, L1TransactionReceipt, L1ToL2MessageStatus } = require('@arbitrum/sdk');
-const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1ToL2MessageGasEstimator')
+const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1ToL2MessageGasEstimator');
 const { hexDataLength } = require('@ethersproject/bytes');
 require("dotenv").config();
 const deployment = require("../../contract/deployments.json");
@@ -19,6 +19,9 @@ const genesisBlockDst = deployment[L1_CHAIN_ID][DIRECTION].genesisDst;
 const srcAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeSrc;
 const dstAddress = deployment[L1_CHAIN_ID][DIRECTION].bridgeDest;
 const l1Address = deployment[L1_CHAIN_ID][DIRECTION].bridge;
+
+const tokens = deployment[L1_CHAIN_ID].tokens;
+const dstTokens = DIRECTION === "O2A" ? tokens.map(t => t.Arbitrum) : tokens.map(t => t.Optimism);
 
 const srcProvider = new providers.JsonRpcProvider(DIRECTION === "O2A" ? OP_RPC : AB_RPC);
 const dstProvider = new providers.JsonRpcProvider(DIRECTION === "O2A" ? AB_RPC : OP_RPC);
@@ -63,11 +66,12 @@ const opL1Messenger = new sdk.CrossChainMessenger({
 });
 
 //pending msg to trigger on L1
-let pendingL1Msgs = new Map(); //count => {txHash, timestamp}
+let claimedCountStatus = new Map(); //count => {txHash, timestamp}
 let processedBlockDst;
 let processedBlockSrc;
+let lastCountSearched;
 
-let balances = [];
+let balances = {};
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock;
@@ -120,7 +124,7 @@ async function traceDeposit(fromBlock, sync) {
     } catch (e) {
         err("claim", e.reason ? e.reason : e);
     }
-    setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
+    setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
 }
 
 async function timeoutForMinFee(transferData) {
@@ -129,13 +133,14 @@ async function timeoutForMinFee(transferData) {
 }
 
 async function takeOrder(transferData, transferDataHash, sync) {
-    if (await take(transferData)) {
+    if (await take(transferData)) {// possibility that this count could be another claim?
         const transCount = await dstContract.transferCount();
         const count = transCount.toNumber();
+        claimedCountStatus.set(count, { status: 'claimed' });
         if (sync) {
-            const txHash = await syncHashOnion(count);
+            const txHash = await declare(count);
             if (txHash) {
-                pendingL1Msgs.set(count, { tx: txHash, time: Date.now() });
+                claimedCountStatus.set(count, { status: 'declared', tx: txHash, time: Date.now() });
                 triggerL1Msg(count);
             }
         }
@@ -163,7 +168,7 @@ async function doWithdraw(fromCount, toCount) {
         if (receipt.status == 1) {
             logWithdraw("withdraw reward success 🤑!", tx.hash);
             for (let i = fromCount; i < toCount; i++) {
-                pendingL1Msgs.delete(i);
+                claimedCountStatus.delete(i);
             }
             return true;
         }
@@ -199,8 +204,8 @@ async function take(transferData) {
     return false;
 }
 
-async function syncHashOnion(count) {
-    logSync("syncHashOnion for count", String(count));
+async function declare(count) {
+    logSync("declare for count", String(count));
     try {
         let tx;
         if (DIRECTION === "A2O") {
@@ -215,7 +220,7 @@ async function syncHashOnion(count) {
                     tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas);
                 }
             } catch (e) {
-                err("sync", "syncHashOnion count=", count, e.error);
+                err("sync", "declare count=", count, e.error);
                 throw "declareNewHashChainHeadToArbi error";
             }
         } else {
@@ -229,7 +234,7 @@ async function syncHashOnion(count) {
                     tx = await dstContract.declareNewHashChainHead(count);
                 }
             } catch (e) {
-                err("sync", "syncHashOnion count=", count, e);
+                err("sync", "declare count=", count, e);
                 throw "declareNewHashChainHead error";
             }
         }
@@ -242,7 +247,7 @@ async function syncHashOnion(count) {
     } catch (e) {
         err("sync", "declareNewHashChainHead failed.", e.reason ? e.reason : e);
         if (e.code === "TIMEOUT") {
-            return await syncHashOnion(count);
+            return await declare(count);
         }
     }
     return null
@@ -270,8 +275,8 @@ async function triggerL1MsgOptimism(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
         logSyncCount("triggering L2 to L1 msg");
-        let item = pendingL1Msgs.get(count);
-        if (!item) {
+        let item = claimedCountStatus.get(count);
+        if (!item || item.status !== "declared") {
             err("sync", "unknown pending msg for count", count);
             return;
         }
@@ -317,7 +322,7 @@ async function triggerL1MsgOptimism(count) {
                 logSyncCount("l2ToL1Msg.execute result tx:", tx.hash);
                 await tx.wait();
                 logSyncCount("relay message success!");
-                item.triggered = true;
+                item.status = "triggered";
             }
         } catch (e) {
             err("sync", `count=${count} finalizeMessage failed`, e.reason ? e.reason : e);
@@ -333,8 +338,6 @@ async function triggerL1MsgOptimism(count) {
             if (await waitSyncedToL2(count)) {
                 await processWithdraw(count);
             }
-        } else {
-            item.updateToArbitrumFailed = true;
         }
     } catch (e) {
         err("sync", "trigger L1 msg Optimism failed. count=", count, e.reason ? e.reason : e);
@@ -347,7 +350,7 @@ async function triggerL1MsgOptimism(count) {
 async function triggerL1MsgArbitrum(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
-        const item = pendingL1Msgs.get(count);
+        const item = claimedCountStatus.get(count);
         if (!item) {
             err("sync", "unknown pending msg for count", count);
             return;
@@ -371,7 +374,7 @@ async function triggerL1MsgArbitrum(count) {
             const res = await l2ToL1Msg.execute(dstProvider);
             const rec = await res.wait();
             logSyncCount(`Done! Your transaction is executed; status=${rec.status}`)
-            item.triggered = true;
+            item.status = "triggered";
         }
         while (true) {
             if (await knownHashOnionsL1(count)) {
@@ -458,14 +461,24 @@ async function updateHashToArbitrumFromL1(count) {
             { value: callValue, }
         );
         const setRec = await setTx.wait();
+        let item = claimedCountStatus.get(count);
+        item.status = "l1ToL2Called";
         logSyncCount(`Set hash txn confirmed on L1!`);
         const l1TxReceipt = new L1TransactionReceipt(setRec);
         const message = (await l1TxReceipt.getL1ToL2Messages(srcSigner))[0];
         logSyncCount("start waiting for status");
-        const result = await message.waitForStatus();
+        let result;
+        try {
+            result = await message.waitForStatus();
+        } catch (e) {
+            err("sync", `count=${count}`, "waitForStatus", e.reason ? e.reason : e);
+            const status = await message.status();
+            result = { status };
+        }
         logSyncCount("result", result);
         if (result.status === L1ToL2MessageStatus.REDEEMED) {
             logSyncCount(`L2 retryable txn executed ${message.l2TxHash}`);
+            item.status = "l1ToL2Redeemed";
             return true;
         }
         if (result.status === L1ToL2MessageStatus.FUNDS_DEPOSITED_ON_L2) {
@@ -474,9 +487,11 @@ async function updateHashToArbitrumFromL1(count) {
             const receipt = await response.wait();
             if (receipt.status == 1) {
                 logSyncCount("redeem successfully");
+                item.status = "l1ToL2Redeemed";
                 return true;
             }
         }
+        item.status = "l1ToL2RedeemFailed";
         logSyncCount(`L2 retryable txn FAILED with status ${result.status}`);
     } catch (e) {
         err("sync", `count=${count}`, "updateHashToArbitrumFromL1", e.reason ? e.reason : e);
@@ -495,7 +510,7 @@ async function checkSyncResult(count) {
         const onion = await srcContract.knownHashOnions(count);
         if (onion != constants.HashZero) {
             logSyncCount("found synced hash on src", onion)
-            pendingL1Msgs.delete(count);
+            claimedCountStatus.delete(count);
             return true;
         }
         logSyncCount(`hash NOT on src`);
@@ -510,7 +525,6 @@ async function knownHashOnionsL1(count) {
     try {
         const known = await l1Contract.knownHashOnions(count);
         if (known != constants.HashZero) {
-            logSync(`count=${count} hash=${known}`);
             return true;
         }
         logSync(`count=${count} hash NOT on L1`);
@@ -527,7 +541,7 @@ async function syncCount(count) {
         return;
     }
     if (await withdrawn(count)) {
-        pendingL1Msgs.delete(count);
+        claimedCountStatus.delete(count);
         logSyncCount("already withdrawn");
         return;
     }
@@ -538,19 +552,21 @@ async function syncCount(count) {
     }
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
-        let item = pendingL1Msgs.get(count);
-        if (item.updateToArbitrumFailed) {
+        let item = claimedCountStatus.get(count);
+        if (item.status == "l1ToL2RedeemFailed") {
             // A2O only
-            if (await updateHashToArbitrumFromL1(count)) {
-                delete item.updateToArbitrumFailed;
+            if (!await updateHashToArbitrumFromL1(count)) {
+                err("sync", "updateHashToArbitrumFromL1 failed.");
+                return;
             }
+            item.status = "l1ToL2Redeemed";
         }
         if (await waitSyncedToL2(count)) {
             await processWithdraw(count);
         }
         return;
     }
-    if (pendingL1Msgs.get(count)) {
+    if (claimedCountStatus.get(count)) {
         logSyncCount("already submit to L1, pending for finalize.");
         await triggerL1Msg(count);
         return;
@@ -561,15 +577,35 @@ async function syncCount(count) {
         logSyncCount("skip sync: hash will not be found on dst");
         return;
     }
-    const txHash = await syncHashOnion(count);
+    const txHash = await declare(count);
     logSyncCount("sync hash from dst chain. txHash=", txHash);
     if (txHash) {
-        pendingL1Msgs.set(count, { tx: txHash, time: Date.now() });
+        claimedCountStatus.set(count, { tx: txHash, time: Date.now() });
         await triggerL1Msg(count);
     }
 }
 
 async function checkCountStatus(count) {
+    const { status, time } = claimedCountStatus.get(count);
+    if (status) {
+        if (status === "claimed") {
+            return `dst: claimed`;
+        }
+        if (status === "triggered") {
+            return `dst => L1: ${status}`;
+        }
+        if (status === "declared" || time) {
+            const delay = time + L2ToL1Delay - Date.now();
+            if (delay > 0) {
+                return `dst => L1: waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
+            }
+        }
+        // A2O only
+        if (status.startsWith("l1ToL2")) {
+            return `L1 => src:  ${status}`;
+        }
+        return status;
+    }
     if (await withdrawn(count)) {
         return "withdrawn";
     }
@@ -577,40 +613,26 @@ async function checkCountStatus(count) {
         return "synced to src (ready to withdraw)";
     }
     if (await knownHashOnionsL1(count)) {
-        const { updateToArbitrumFailed } = pendingL1Msgs.get(count);
-        if (updateToArbitrumFailed) {
-            // A2O only
-            return "update hash from L1 to Arbitrum failed";
-        }
-        return "L1 => src";
+        return `L1 => src`;
     }
-    const { time, triggered } = pendingL1Msgs.get(count);
-    if (triggered) {
-        return `dst => L1: finalized/executed`;
-    }
-    if (time) {
-        const delay = time + L2ToL1Delay - Date.now();
-        if (delay > 0) {
-            return `dst => L1: waiting for ${delay / 1000 / 3600} hours to finalize/execute`;
-        }
-    }
-    return `dst => L1: possibily failed to finalize/execute`;
+    return "unknown";
 }
 
 async function retrieveRewardData(fromCount, toCount) {
     logWithdraw(`start searching onchain for rewardData from ${fromCount} to ${toCount}`);
+    const total = toCount - fromCount + 1;
     let result = [];
     let fromBlock = genesisBlockDst;
     let i = 0;
-    if (processedBlockDst && processedBlockDst < fromCount) {
+    if (processedBlockDst && lastCountSearched < fromCount) {
         fromBlock = processedBlockDst;
-        i = processedCount;
+        i = lastCountSearched;
     }
     logWithdraw(`starting from block ${fromBlock}, last count ${i}`);
     try {
         const curBlock = await dstProvider.getBlockNumber();
         logWithdraw(`current block number is ${curBlock}`);
-        while (true) {
+        out: while (true) {
             const toBlock = Math.min(curBlock, fromBlock + 5000);
             const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
             logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claims`);
@@ -619,27 +641,28 @@ async function retrieveRewardData(fromCount, toCount) {
                 if (i >= fromCount && i <= toCount) {
                     result.push(r.args);
                     logWithdraw(i, r.blockNumber, r.args.map(i => String(i)));
+                    if (result.length === total) {
+                        processedBlockDst = r.blockNumber;
+                        lastCountSearched = i;
+                        console.log("break out")
+                        break out;
+                    }
                 }
             }
-            if (toBlock == curBlock || result.size === toCount - fromCount + 1) {
-                processedBlockDst = toBlock;
-                processedCount = i;
+            if (toBlock == curBlock) {
                 break;
             }
-            fromBlock = toBlock;
+            fromBlock = toBlock + 1;
         }
     } catch (e) {
-        err("withdraw", "query Claim failed:", e);
+        err("withdraw", "query Claim events failed:", e);
     }
     return result;
 }
 
 async function approve() {
-    const tokensToApprove = DIRECTION === "O2A" ?
-        deployment[L1_CHAIN_ID].tokens.map(t => t.Arbitrum)
-        : deployment[L1_CHAIN_ID].tokens.map(t => t.Optimism);
     logMain("Checking token allowance...")
-    for (let t of tokensToApprove) {
+    for (let t of dstTokens) {
         const erc20Token = new Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
             "function approve(address,uint256) public",
@@ -652,34 +675,73 @@ async function approve() {
     }
 }
 
+let exiting = false;
 async function exitHandler() {
+    if (exiting) {
+        return;
+    }
+    exiting = true;
     logMain("Exiting...");
-    const [l1, src, dst] = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
-    logMain(`L1: ${utils.formatEther(balances[0])} ->  ${utils.formatEther(l1)} ETH`)
-    logMain(`src: ${utils.formatEther(balances[1])} ->  ${utils.formatEther(src)} ${DIRECTION === 'O2A' ? 'OETH' : 'AETH'}`)
-    logMain(`dst: ${utils.formatEther(balances[2])} ->  ${utils.formatEther(dst)} ${DIRECTION === 'O2A' ? 'AETH' : 'OETH'}`)
-    saveStatus(processedBlockSrc, processedBlockDst, processedCount, pendingL1Msgs);
+    saveStatus(processedBlockSrc, processedBlockDst, lastCountSearched, claimedCountStatus);
+    await diffBalances();
     process.exit();
 }
 
+async function queryBalances() {
+    const bals = {};
+    bals.ETH = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
+    for (let t of tokens) {
+        const srcAddr = DIRECTION === "O2A" ? t.Optimism : t.Arbitrum;
+        const dstAddr = DIRECTION === "O2A" ? t.Arbitrum : t.Optimism;
+        bals[t.name] = await Promise.all([getBalance(srcAddr, srcSigner), getBalance(dstAddr, dstSigner)]);
+    }
+    return bals;
+}
+
+async function getBalance(tokenAddr, signer) {
+    const erc20Token = new ethers.Contract(tokenAddr, [
+        "function balanceOf(address) public view returns (uint256)"
+    ], signer);
+    const balance = await erc20Token.balanceOf(srcSigner.address);
+    return balance;
+}
+
+async function diffBalances() {
+    const fmt = (v) => utils.formatEther(v);
+    const prt = (a, b) => `${fmt(a)}->${fmt(b)}=>${a.lt(b) ? '+' : ''}${fmt(b.sub(a))}`;
+    const [l10e, src0e, dst0e] = balances.ETH;
+    const newBals = await queryBalances();
+    const [l1e, srce, dste] = newBals.ETH;
+    logMain(` L1: ${prt(l10e, l1e)} ETH`);
+    logMain(`src(${DIRECTION === 'O2A' ? 'Optimism' : 'Arbitrum'}): ${prt(src0e, srce)} ${DIRECTION === 'O2A' ? 'OETH' : 'AETH'}`);
+    logMain(`dst(${DIRECTION === 'O2A' ? 'Arbitrum' : 'Optimism'}): ${prt(dst0e, dste)} ${DIRECTION === 'O2A' ? 'AETH' : 'OETH'}`);
+    for (let t of tokens) {
+        const [src0, dst0] = balances[t.name];
+        const [src, dst] = newBals[t.name];
+        logMain(`src(${DIRECTION === 'O2A' ? 'Optimism' : 'Arbitrum'}): ${prt(src0, src)} ${t.name}`);
+        logMain(`dst(${DIRECTION === 'O2A' ? 'Arbitrum' : 'Optimism'}): ${prt(dst0, dst)} ${t.name}`);
+    }
+}
+
 async function main() {
-    balances = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
     logMain(`Staring LP services for L2Bridge 
                             ${DIRECTION === 'O2A' ? '(Optimism => Arbitrum)' : '(Arbitrum => Optimism)'},
                             L1 chainId = ${L1_CHAIN_ID}`)
-    await approve();
     process.stdin.resume();
     //do something when app is closing
     process.on('exit', async () => { await exitHandler() });
     //catches ctrl+c event
-    process.on('SIGINT', async () =>  { await exitHandler() });
+    process.on('SIGINT', async () => { await exitHandler() });
     process.on('uncaughtException', async e => {
         err("main", e);
         await exitHandler();
     });
-
+    if (!(process.argv.length > 2 && process.argv[2] === "status")) {
+        balances = await queryBalances();
+        await approve();
+    }
     let syncFlag = false;
-    ({ processedBlockSrc, processedBlockDst, processedCount, pendingL1Msgs } = loadStatus());
+    ({ processedBlockSrc, processedBlockDst, lastCountSearched, claimedCountStatus } = loadStatus());
     let startBlock;
     if (process.argv.length > 2) {
         const args = process.argv.slice(2);
@@ -701,13 +763,13 @@ async function main() {
             }
             await syncCount(count);
             logMain("Done sync.");
-            process.exit(0);
+            return;
         }
         if (args[0] === "status") {
             const start = new Date()
             logMain("Start checking status of your pending claims...");
             const result = new Map();
-            for (let c of pendingL1Msgs.keys()) {
+            for (let c of claimedCountStatus.keys()) {
                 result.set(c, checkCountStatus(c));
             }
             await Promise.all(result.values());
@@ -717,7 +779,7 @@ async function main() {
             }
             logMain("===============================")
             logMain("Done status. in " + (new Date() - start) / 1000 + "seconds");
-            process.exit(0);
+            process.exit();
         }
         if (args[0] === "-sync") {
             syncFlag = true;
