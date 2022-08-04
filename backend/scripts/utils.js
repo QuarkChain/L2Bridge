@@ -35,10 +35,9 @@ function reviver(key, value) {
     return value;
 }
 
-const saveStatus = (blockSrc, blockDst, lastCount, claimedCountStatus) => {
-    const storage = { blockSrc, blockDst, lastCount };
+const saveStatus = (blockSrc, claimedCountStatus) => {
+    const storage = { blockSrc };
     storage.syncs = JSON.parse(JSON.stringify(claimedCountStatus, replacer));
-    // logMain("storage", storage)
     fs.writeFileSync(storageFile, JSON.stringify(storage, null, 2), e => {
         if (e) {
             err("main", e);
@@ -48,16 +47,10 @@ const saveStatus = (blockSrc, blockDst, lastCount, claimedCountStatus) => {
 
 const loadStatus = () => {
     let processedBlockSrc;
-    let processedBlockDst;
-    let lastCountSearched;
     let claimedCountStatus = new Map();
     if (fs.existsSync(storageFile)) {
-        const storage = require(storageFile);
-        // logMain("Storage", storage);
-        const { blockDst, blockSrc, lastCount, syncs } = storage;
-        processedBlockDst = blockDst;
+        const { blockSrc, syncs } = require(storageFile);
         processedBlockSrc = blockSrc;
-        lastCountSearched = lastCount;
         claimedCountStatus = JSON.parse(JSON.stringify(syncs, replacer), reviver);
     } else {
         const dir = __dirname + `/../data/${L1_CHAIN_ID}/`;
@@ -65,7 +58,7 @@ const loadStatus = () => {
             fs.mkdirSync(dir, { recursive: true });
         }
     }
-    return { processedBlockSrc, processedBlockDst, lastCountSearched, claimedCountStatus }
+    return { processedBlockSrc, claimedCountStatus }
 }
 
 module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus };
