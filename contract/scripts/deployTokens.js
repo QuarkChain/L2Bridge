@@ -2,10 +2,10 @@ const { ethers } = require('hardhat')
 const { providers, Wallet } = ethers;
 require("dotenv").config();
 
-const { OP_RPC, AB_RPC, PRIVATE_KEY } = process.env;
+const { RPC_OP, RPC_AB, PRIVATE_KEY } = process.env;
 
-const opProvider = new providers.JsonRpcProvider(OP_RPC)
-const abProvider = new providers.JsonRpcProvider(AB_RPC)
+const opProvider = new providers.JsonRpcProvider(RPC_OP)
+const abProvider = new providers.JsonRpcProvider(RPC_AB)
 
 const opWallet = new Wallet(PRIVATE_KEY, opProvider)
 const abWallet = new Wallet(PRIVATE_KEY, abProvider)

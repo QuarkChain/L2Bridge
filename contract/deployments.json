@@ -53,38 +53,38 @@
    }
   ],
   "O2A": {
-   "genesisSrc": 206689,
-   "genesisDst": 11743,
-   "bridge": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+   "genesisSrc": 253769,
+   "genesisDst": 88306,
+   "bridge": "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736",
    "bridgeArgs": [
     "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
     "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
    ],
-   "bridgeSrc": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325",
+   "bridgeSrc": "0xeE214CB2E99cc17A57C4fB71aB436Ad79980a119",
    "bridgeSrcArgs": [
-    "0x5988BF57bada5Ac355c5f49C5ba1215790556057"
+    "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736"
    ],
-   "bridgeDest": "0x5BAfD5BD6B88f23244a07494aDA9BBBdef12F7AC",
+   "bridgeDest": "0x0B1dc39be156539525Cc72B2C54A99F9D43563BF",
    "bridgeDestArgs": [
-    "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+    "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736",
     100
    ]
   },
   "A2O": {
-   "genesisSrc": 11785,
-   "genesisDst": 209452,
-   "bridge": "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+   "genesisSrc": 88309,
+   "genesisDst": 253821,
+   "bridge": "0x348F7901FdFc9CC6b46F944E08D388254a43200d",
    "bridgeArgs": [
     "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
     "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
    ],
-   "bridgeSrc": "0xeF61892EeD4F4F67DFb8F273B1a8be0CAAd903ee",
+   "bridgeSrc": "0xc5C6e34605e511000C1a0052aA5CD539e869B9e7",
    "bridgeSrcArgs": [
-    "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7"
+    "0x348F7901FdFc9CC6b46F944E08D388254a43200d"
    ],
-   "bridgeDest": "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+   "bridgeDest": "0xec45082f8f89e1d6E516aC132D8bC2A78610Ec78",
    "bridgeDestArgs": [
-    "0xD75EfC265B320cd7C75e1001677BA68a3e176aA7",
+    "0x348F7901FdFc9CC6b46F944E08D388254a43200d",
     100
    ]
   }
