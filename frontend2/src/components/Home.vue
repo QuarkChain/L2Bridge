@@ -148,7 +148,7 @@ export default {
   name: 'Home',
   data: () => {
     return {
-      currentCoin: {value: 'USDC', label: 'USDC', src: require('@/assets/token/usdc.png')},
+      currentCoin: {value: 'USDT', label: 'USDT', src: require('@/assets/token/usdt.png')},
       coins: [
         // {value: 'ETH', label: 'ETH', src: require('@/assets/token/eth.png')},
         {value: 'USDC', label: 'USDC', src: require('@/assets/token/usdc.png')},
@@ -158,14 +158,14 @@ export default {
       networks: [
         // {value: 'optimism', label: 'Optimism', src: require('@/assets/optimism.png'), chainId: '0xa'},
         // {value: 'arbitrum', label: 'Arbitrum', src: require('@/assets/arbitrum.svg'), chainId: '0xa4b1'},
-        {value: 'optimism1', label: 'Optimism1', src: require('@/assets/optimism.png'), chainId: '0x45'},
-        {value: 'optimism2', label: 'Optimism2', src: require('@/assets/optimism.png'), chainId: '0x45'},
+        {value: 'optimism', label: 'Optimism', src: require('@/assets/optimism.png'), chainId: '0x1a4'},
+        {value: 'arbitrum', label: 'Arbitrum', src: require('@/assets/arbitrum.svg'), chainId: '0x66eed'},
       ],
       fromNetwork: null,
       toNetwork: null,
       inputFrom: '',
 
-      inputExpire: 8 * 24 * 60 * 60,
+      inputExpire: 9 * 24 * 60 * 60,
       inputRamp: 2 * 60 * 60,
       inputMaxFee: 5,
 
@@ -214,7 +214,7 @@ export default {
       if (this.fromNetwork == null) {
         return {};
       }
-      return chainInfos.find((v) => v.chainName === this.fromNetwork.label);
+      return chainInfos.find((v) => v.chainId === this.fromNetwork.chainId);
     },
     isSendDisable() {
       return !this.fromNetwork || !this.toNetwork || this.isChainNotSupported
@@ -244,7 +244,7 @@ export default {
           return 1;
         }
         const coin = this.currentChainInfo[this.currentCoin.value];
-        const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainName === this.toNetwork.label);
+        const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainId === this.toNetwork.chainId);
         const allowance = await getAllowance(coin, contractInfo.src, this.account);
         return allowance.toNumber();
       },
@@ -300,14 +300,14 @@ export default {
     onSelectFromNetwork(network) {
       this.fromNetwork = network;
       if (this.toNetwork === this.fromNetwork) {
-        this.toNetwork = this.networks.find((v) => v.value !== this.fromNetwork.value);
+        this.toNetwork = this.networks.find((v) => v.chainId !== this.fromNetwork.chainId);
       }
       this.$router.push({path: '/send', query: this.getParams()});
     },
     onSelectToNetwork(network) {
       this.toNetwork = network;
       if (this.toNetwork === this.fromNetwork) {
-        this.fromNetwork = this.networks.find((v) => v.value !== this.toNetwork.value);
+        this.fromNetwork = this.networks.find((v) => v.chainId !== this.toNetwork.chainId);
       }
       this.$router.push({path: '/send', query: this.getParams()});
     },
@@ -356,7 +356,7 @@ export default {
     },
     async onApprove() {
       const coin = this.currentChainInfo[this.currentCoin.value];
-      const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainName === this.toNetwork.label);
+      const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainId === this.toNetwork.chainId);
       const spender = contractInfo.src;
       const result = await setAllowance(coin, spender);
       if (result) {
@@ -374,9 +374,9 @@ export default {
         duration: 0
       });
 
-      const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainName === this.toNetwork.label);
+      const contractInfo = this.currentChainInfo.bridge.find((v) => v.destChainId === this.toNetwork.chainId);
       const srcCoin = this.currentChainInfo[this.currentCoin.value];
-      const toChainInfo = chainInfos.find((v) => v.chainName === this.toNetwork.label);
+      const toChainInfo = chainInfos.find((v) => v.chainId === this.toNetwork.chainId);
       const descCoin = toChainInfo[this.currentCoin.value];
       const result = await sendToken(
           contractInfo.src, srcCoin, descCoin, this.account,
@@ -681,8 +681,5 @@ export default {
 <style>
 .popper__arrow::after {
   border-bottom-color: black !important;
-}
-.navbar-menu {
-  background: #F6F2EC;
 }
 </style>
