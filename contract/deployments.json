@@ -1,92 +1,47 @@
 {
-  "4": {
-    "bridge": "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3",
-    "bridgeArgs": [
-      "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
-      "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
-      "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
-    ]
+ "4": {
+  "tokens": [
+   {
+    "name": "LINK",
+    "Optimism": "0x1cC8d6d2f14ac432605558A30461ebF501EaE427",
+    "Arbitrum": "0x615fBe6372676474d9e6933d310469c9b68e9726"
+   }
+  ],
+  "O2A": {
+   "genesisSrc": 160343,
+   "genesisDst": 13882441,
+   "bridge": "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
+   "bridgeArgs": [
+    "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
+    "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
+   ],
+   "bridgeSrc": "0x710fd5cfC7bAa09fB2A10dCc8AEEdF19feBe11DD",
+   "bridgeSrcArgs": [
+    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF"
+   ],
+   "bridgeDest": "0xCe993AD2144be3684180E5836a38aEDAb1B03932",
+   "bridgeDestArgs": [
+    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
+    100
+   ]
   },
-  "5": {
-    "bridge": "0xDe8A7B0d06045642794c1752aBB2358147257E60",
-    "bridgeArgs": [
-      "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
-      "0xB5a0BA79d7f63571B7Ba81C9ab30e8f9A72b858F",
-      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
-    ]
-  },
-  "42": {
-    "bridge": "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
-    "bridgeArgs": [
-      "0xBdd2E132F5F87672F71138A562142bc19BEC7aF3",
-      "0xBdd2E132F5F87672F71138A562142bc19BEC7aF3",
-      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
-    ]
-  },
-  "69": {
-    "bridgeSrc": "0x524867916F136b56083b7b1F071d228361A6600E",
-    "bridgeSrcArgs": [
-      "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c"
-    ],
-    "bridgeDest": "0x0AD853E840cCa279F24c59698751aD2635E5c533",
-    "bridgeDestArgs": [
-      "0x34Fb74842eFd8f43EaB03DE3c713868D0ba6dC0c",
-      100
-    ],
-    "tokenSrc": "0xF495b9DE9143e9CB81087880d089aA161Bb6B82B",
-    "tokenSrcArgs": [
-      "USDC"
-    ],
-    "tokenDest": "0x352ad2db4b7695B2919e0926FF7659FEa16d7f5C",
-    "tokenDestArgs": [
-      "USDT"
-    ]
-  },
-  "31337": {
-    "bridge": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "bridgeArgs": [
-      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      "0x4361d0F75A0186C05f971c566dC6bEa5957483fD"
-    ],
-    "bridgeSrc": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "bridgeSrcArgs": [
-      "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-    ],
-    "bridgeDest": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    "bridgeDestArgs": [
-      "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      100
-    ]
-  },
-  "421611": {
-    "bridgeSrc": "0xe94eE3767876fa4750A31AF94d1B0CA7F47F5DB8",
-    "bridgeSrcArgs": [
-      "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3"
-    ],
-    "bridgeDest": "0x7f089b6A5C3044e5D48d3461cF8c3F5f75C12c15",
-    "bridgeDestArgs": [
-      "0x0406b1Ad0Ac4d6435C7B089CF628E7D25eFb2ae3",
-      100
-    ],
-    "tokenSrc": "0xAF8703FC9f1857d637393baECAcE25a5FC202171",
-    "tokenSrcArgs": [
-      "USDC"
-    ],
-    "tokenDest": "0xc13e4d8532B206a0b9B616acD244B1B44312C2E9",
-    "tokenDestArgs": [
-      "USDT"
-    ]
-  },
-  "421612": {
-    "bridgeSrc": "0x5d18bD1B7761C57328445ec21C37dFA130A63DB9",
-    "bridgeSrcArgs": [
-      "0xDe8A7B0d06045642794c1752aBB2358147257E60"
-    ],
-    "bridgeDest": "0x2Dcd278A30A191148302b66c1f2a2EeEB30C7443",
-    "bridgeDestArgs": [
-      "0xDe8A7B0d06045642794c1752aBB2358147257E60",
-      100
-    ]
+  "A2O": {
+   "genesisSrc": 13889147,
+   "genesisDst": 160656,
+   "bridge": "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
+   "bridgeArgs": [
+    "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
+    "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
+   ],
+   "bridgeSrc": "0xc4685f7a059BEdDCd1D1AB5c511e2aDCEa7c5059",
+   "bridgeSrcArgs": [
+    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb"
+   ],
+   "bridgeDest": "0xc308d071f6a4D19e6B1BEd44008EB655498Aa675",
+   "bridgeDestArgs": [
+    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
+    100
+   ]
   }
+ }
 }

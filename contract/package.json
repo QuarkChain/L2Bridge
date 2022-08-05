@@ -28,6 +28,10 @@
   },
   "scripts": {
     "compile": "hardhat compile",
+    "predeploy-o2a": "hardhat compile",
+    "predeploy-a2o": "hardhat compile",
+    "deploy-o2a":"node scripts/deploy.js O2A",
+    "deploy-a2o":"node scripts/deploy.js A2O",
     "test": "hardhat test",
     "deployl1": "hardhat run scripts/deployl1.js",
     "deployl2": "hardhat run scripts/deployl2.js",

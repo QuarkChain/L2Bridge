@@ -9,9 +9,7 @@ import "../L2BridgeSource.sol";
 contract ArbitrumBridgeSource is L2BridgeSource {
     ArbSys constant arbsys = ArbSys(address(100));
     address public l1Target;
-
-    event L2ToL1TxCreated(uint256 indexed withdrawalId);
-
+    
     constructor(address _l1Target) {
         l1Target = _l1Target;
     }
@@ -31,6 +29,6 @@ contract ArbitrumBridgeSource is L2BridgeSource {
             msg.sender == AddressAliasHelper.applyL1ToL2Alias(l1Target),
             "only updateable by L1"
         );
-        knownHashOnions[count] = chainHash;
+        super.updateChainHashFromL1(count, chainHash);
     }
 }

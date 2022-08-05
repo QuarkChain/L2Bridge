@@ -48,9 +48,20 @@ module.exports = {
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
     optimisticKovan: {
-      url: `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
+      chainId: 69,
+      url: `https://kovan.optimism.io/`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
+    bobaRinkeby: {
+      chainId: 28,
+      url: `https://rinkeby.boba.network/`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    arbitrumRinkeby: {
+      chainId: 421611,
+      url: `https://rinkeby.arbitrum.io/rpc`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    }
   },
   gasReporter: {
     enabled: REPORT_GAS !== undefined,
