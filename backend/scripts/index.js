@@ -120,16 +120,17 @@ async function takeOrder(transferData, sync) {
     const lpFee = await dstContract.getLPFee(transferData);
     logClaim(`current LP fee=${utils.formatUnits(lpFee)} max LP fee=${utils.formatUnits(transferData[4])}`);
     if (lpFee.lt(utils.parseEther(MIN_FEE))) {
-        const timeout = timeoutForMinFee(transferData);
-        console.log("timeout", timeout)
-        if (timeout > 0) {
-            logClaim(`skip for now due to low LP fee, will retry in ${timeout / 1000 / 60} minutes`);
-            setTimeout(() => {
-                takeOrder(transferData, sync);
-            }, timeout);
-        } else {
-            logClaim(`rejected: low LP fee`);
-        }
+        // const timeout = timeoutForMinFee(transferData);
+        // console.log("timeout", timeout)
+        // if (timeout > 0) {
+        //     logClaim(`skip for now due to low LP fee, will retry in ${timeout / 1000 / 60} minutes`);
+        //     setTimeout(() => {
+        //         takeOrder(transferData, sync);
+        //     }, timeout);
+        // } else {
+        //     logClaim(`rejected: low LP fee`);
+        // }
+        logClaim(`rejected: low LP fee`);
         return;
     }
     const data = transferData.map(t => String(t));
@@ -186,10 +187,8 @@ function timeoutForMinFee(transferData) {
         return -1;
     }
     let timeSec = MIN_FEE * transferData[6] / (transferData[4] / 1e18);
-    console.log("timeSec", timeSec)
-    const time = (timeSec + parseInt(transferData[5])) * 1000 - Date.now();
-    console.log("time", time)
-    return time;
+    timeSec = timeSec + parseInt(transferData[5]) - Date.now() / 1000;
+    return time * 1000;
 }
 
 async function doWithdraw(fromCount, toCount) {
