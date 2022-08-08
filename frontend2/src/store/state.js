@@ -29,11 +29,11 @@ export const chainInfos = [{
     },
   ],
   USDT: {
-    address: "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325",
+    address: "0xE77815fAC07009fD53e34E7F2874f0e781638E50",
     decimals: 18,
   },
   USDC: {
-    address: "0xF495b9DE9143e9CB81087880d089aA161Bb6B82B",
+    address: "0x9edd2920723290277BE071AfFF1De9a843451871",
     decimals: 18,
   },
 },
@@ -52,11 +52,11 @@ export const chainInfos = [{
     },
   ],
   USDT: {
-    address: "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
+    address: "0x466869e807dd3D332D9b034Fa0F0bebE55CFaf82",
     decimals: 18,
   },
   USDC: {
-    address: "0xF495b9DE9143e9CB81087880d089aA161Bb6B82B",
+    address: "0x93305dE5e4809F37c23f6e5C1EE023110116eD25",
     decimals: 18,
   },
 },
