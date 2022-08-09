@@ -48,6 +48,7 @@
   "tokens": [
    {
     "name": "TEST",
+    "L1":"0x514910771af9ca656af840dff83e8264ecf986ca",
     "Optimism": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
     "Arbitrum": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325"
    }

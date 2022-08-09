@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@arbitrum/sdk@^v3.0":
-  version "3.0.0-beta.6"
-  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.6.tgz#a36c3e39a7358396b5533f3288125107da6ae59e"
-  integrity sha512-kPCfgj72MeyVcIXQKoztLO29UTcpSbXFzc/S0oDgVNNcHcXp1hWUJqqkVRg0O43P2yKjZRT/I94K0Nj2nZNiiQ==
+"@arbitrum/sdk@3.0.0-beta.5":
+  version "3.0.0-beta.5"
+  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.5.tgz#ef1c81de58db9e76defb4a1971274316a375133b"
+  integrity sha512-qeNdK7es4uKRFciz4zznPEnGRZaAHkrwNqUN1F4U6d4i8olhK0KMdSodx2ZjajBvVVwOo5kFsw5ocAaTvkf28g==
   dependencies:
     "@ethersproject/address" "^5.0.8"
     "@ethersproject/bignumber" "^5.1.1"
@@ -1101,6 +1101,13 @@ node-addon-api@^2.0.0:
   resolved "https://registry.npmjs.org/node-addon-api/-/node-addon-api-2.0.2.tgz#432cfa82962ce494b132e9d72a15b29f71ff5d32"
   integrity sha512-Ntyt4AIXyaLIuMHF6IOoTakB3K+RWxwtsHNRxllEoA6vPwP9o4866g6YWDLUdnucilZhmkxiHwHr11gAENw+QA==
 
+node-fetch@2:
+  version "2.6.7"
+  resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-2.6.7.tgz#24de9fba827e3b4ae44dc8b20256a379160052ad"
+  integrity sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==
+  dependencies:
+    whatwg-url "^5.0.0"
+
 node-gyp-build@^4.2.0:
   version "4.5.0"
   resolved "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.5.0.tgz#7a64eefa0b21112f89f58379da128ac177f20e40"
@@ -1258,6 +1265,11 @@ table-layout@^1.0.2:
     typical "^5.2.0"
     wordwrapjs "^4.0.0"
 
+tr46@~0.0.3:
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz#8184fd347dac9cdc185992f3a6622e14b9d9ab6a"
+  integrity sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==
+
 treeify@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/treeify/-/treeify-1.1.0.tgz#4e31c6a463accd0943879f30667c4fdaff411bb8"
@@ -1360,6 +1372,19 @@ web3-utils@^1.3.4:
     number-to-bn "1.7.0"
     randombytes "^2.1.0"
     utf8 "3.0.0"
+
+webidl-conversions@^3.0.0:
+  version "3.0.1"
+  resolved "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz#24534275e2a7bc6be7bc86611cc16ae0a5654871"
+  integrity sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==
+
+whatwg-url@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz#966454e8765462e37644d3626f6742ce8b70965d"
+  integrity sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==
+  dependencies:
+    tr46 "~0.0.3"
+    webidl-conversions "^3.0.0"
 
 wordwrapjs@^4.0.0:
   version "4.0.1"

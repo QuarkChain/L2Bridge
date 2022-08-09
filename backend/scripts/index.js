@@ -1,4 +1,5 @@
 const { ethers, BigNumber } = require("ethers");
+const fetch = require("node-fetch");
 const { utils, constants, providers, Wallet, Contract } = ethers;
 const sdk = require("@eth-optimism/sdk");
 const { L2TransactionReceipt, L2ToL1MessageStatus, L1TransactionReceipt, L1ToL2MessageStatus } = require('@arbitrum/sdk');
@@ -71,6 +72,7 @@ let claimedCountStatus; //count => {txHash, timestamp}
 let processedBlockSrc;
 
 let balances = {};
+const cachePrices = {};
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock;
@@ -88,7 +90,7 @@ async function traceDeposit(fromBlock, sync) {
             }
             if (Date.now() < transferData[i][5] * 1000) {
                 const timeout = transferData[i][5] * 1000 - Date.now();
-                logClaim(`the deposit is not started; will retry in ${timeout / 1000 } seconds`);
+                logClaim(`the deposit is not started; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
                     takeOrder(transferData[i], sync);
                 }, timeout);
@@ -108,13 +110,19 @@ async function traceDeposit(fromBlock, sync) {
     } catch (e) {
         err("claim", e.reason ? e.reason : e);
     }
-    setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
+    if (isNaN(toBlock)) {
+        toBlock = processedBlockSrc;
+    }
+    setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
 }
 
 async function takeOrder(transferData, sync) {
     const lpFee = await dstContract.getLPFee(transferData);
-    logClaim(`current LP fee=${utils.formatUnits(lpFee)} max LP fee=${utils.formatUnits(transferData[4])}`);
-    if (lpFee.lt(utils.parseEther(MIN_FEE))) {
+    const tokenAddrL1 = findL1Address(transferData[1]);
+    const tkPrice = await tokenPrice(tokenAddrL1);
+    const lpFeeInUsd = lpFee.mul(tkPrice * 100).div(100);
+    logClaim(`current LP fee in USD = ${utils.formatUnits(lpFeeInUsd)} max LP fee=${utils.formatUnits(transferData[4])}`);
+    if (lpFeeInUsd.lt(utils.parseEther(MIN_FEE))) {
         const timeout = await timeoutForMinFee(transferData);
         console.log("timeout", timeout)
         if (timeout > 0) {
@@ -126,7 +134,7 @@ async function takeOrder(transferData, sync) {
         }
     }
     const data = transferData.map(t => String(t));
-    logClaim(`start claiming at fee=${utils.formatUnits(lpFee)}`, data);
+    logClaim(`start claiming`, data);
     if (await take(transferData)) {// possibility that this count could be another claim?
         const transCount = await dstContract.transferCount();
         const count = transCount.toNumber();
@@ -138,6 +146,32 @@ async function takeOrder(transferData, sync) {
                 triggerL1Msg(count);
             }
         }
+    }
+}
+
+function findL1Address(l2Addr) {
+    l2Addr = l2Addr.toLowerCase();
+    for (let t of tokens) {
+        if (t.Arbitrum.toLowerCase() === l2Addr.toLowerCase() || t.Optimism.toLowerCase() === l2Addr.toLowerCase()) {
+            return t.L1;
+        }
+    }
+    throw "Cannot find L1 address for " + l2Addr;
+}
+
+async function tokenPrice(tokenAddress) {
+    tokenAddress = tokenAddress.toLowerCase();
+    try {
+        const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const price = data[tokenAddress].usd;
+        cachePrices[tokenAddress] = price;
+        logClaim(`price of ${tokenAddress}`, price);
+        return price;
+    } catch (e) {
+        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
+        return cachePrices[tokenAddress] || 1;
     }
 }
 
@@ -309,10 +343,10 @@ async function triggerL1MsgOptimism(count) {
                     logSyncCount(`ready for relay`);
                     break;
                 }
-                await new Promise(r => setTimeout(r, 5 * 1000));
             } catch (e) {
                 err("sync", `check status count=${count}`, e.reason ? e.reason : e);
             }
+            await new Promise(r => setTimeout(r, 5 * 1000));
         }
         logSyncCount("start finalizing");
         try {
@@ -680,12 +714,12 @@ async function approve() {
     }
 }
 
-// let exiting = false;
+let exiting = false;
 async function exitHandler() {
-    // if (exiting) {
-    //     return;
-    // }
-    // exiting = true;
+    if (exiting) {
+        return;
+    }
+    exiting = true;
     if (claimedCountStatus) {
         saveStatus(processedBlockSrc, claimedCountStatus);
     }
@@ -694,6 +728,7 @@ async function exitHandler() {
 }
 
 async function queryBalances() {
+    logMain(`Query balances...`)
     const bals = {};
     bals.ETH = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
     for (let t of tokens) {
