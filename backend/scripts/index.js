@@ -77,14 +77,9 @@ async function traceDeposit(fromBlock, sync) {
     try {
         let transferData = [];
         toBlock = await srcProvider.getBlockNumber();
-        // console.log("timestamp",         (await srcProvider.getBlock(toBlock)).timestamp);
-        if (toBlock > fromBlock) {
-            const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-            logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
-            transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
-        } else {
-            logClaim("waiting for new blocks")
-        }
+        const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
+        logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+        transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
         for (let i = 0; i < transferData.length; i++) {
             logClaim(`found transferData with amount ${utils.formatEther(transferData[i][3])}`);
             if (Date.now() + L2ToL1Delay > transferData[i][7] * 1000) {
@@ -93,7 +88,7 @@ async function traceDeposit(fromBlock, sync) {
             }
             if (Date.now() < transferData[i][5] * 1000) {
                 const timeout = transferData[i][5] * 1000 - Date.now();
-                logClaim(`the deposit is not started; will retry in ${timeout / 1000 / 60} minutes`);
+                logClaim(`the deposit is not started; will retry in ${timeout / 1000 } seconds`);
                 setTimeout(() => {
                     takeOrder(transferData[i], sync);
                 }, timeout);
@@ -120,18 +115,15 @@ async function takeOrder(transferData, sync) {
     const lpFee = await dstContract.getLPFee(transferData);
     logClaim(`current LP fee=${utils.formatUnits(lpFee)} max LP fee=${utils.formatUnits(transferData[4])}`);
     if (lpFee.lt(utils.parseEther(MIN_FEE))) {
-        // const timeout = timeoutForMinFee(transferData);
-        // console.log("timeout", timeout)
-        // if (timeout > 0) {
-        //     logClaim(`skip for now due to low LP fee, will retry in ${timeout / 1000 / 60} minutes`);
-        //     setTimeout(() => {
-        //         takeOrder(transferData, sync);
-        //     }, timeout);
-        // } else {
-        //     logClaim(`rejected: low LP fee`);
-        // }
-        logClaim(`rejected: low LP fee`);
-        return;
+        const timeout = await timeoutForMinFee(transferData);
+        console.log("timeout", timeout)
+        if (timeout > 0) {
+            logClaim(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
+            setTimeout(() => {
+                takeOrder(transferData, sync);
+            }, timeout);
+            return;
+        }
     }
     const data = transferData.map(t => String(t));
     logClaim(`start claiming at fee=${utils.formatUnits(lpFee)}`, data);
@@ -164,9 +156,9 @@ async function take(transferData) {
             logClaim("claim success");
             return true;
         }
-        err("claim", "tx failed:", data, tx.hash);
+        err("claim", "tx failed:", transferData, tx.hash);
     } catch (e) {
-        err("claim", "claim failed:", data, e);
+        err("claim", "claim failed:", transferData, e);
     }
     return false;
 }
@@ -181,14 +173,16 @@ async function take(transferData) {
 //     uint256 feeRampup;
 //     uint256 expiration;
 // }
-function timeoutForMinFee(transferData) {
+async function timeoutForMinFee(transferData) {
     const minFee = utils.parseEther(MIN_FEE);
     if (minFee.gt(transferData[4]) || BigNumber.from(transferData[4]).isZero()) {
         return -1;
     }
     let timeSec = MIN_FEE * transferData[6] / (transferData[4] / 1e18);
-    timeSec = timeSec + parseInt(transferData[5]) - Date.now() / 1000;
-    return time * 1000;
+    const { number, timestamp } = await dstProvider.getBlock("latest");
+    logClaim("timestamp", timestamp, "number", number)
+    timeSec = timeSec + parseInt(transferData[5]) - timestamp;
+    return timeSec * 1000;
 }
 
 async function doWithdraw(fromCount, toCount) {
