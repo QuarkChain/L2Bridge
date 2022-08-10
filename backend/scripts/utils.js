@@ -72,7 +72,7 @@ async function tokenPrice(tokenAddress) {
         const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
         const resp = await fetch(url);
         const data = await resp.json();
-        const price = data[tokenAddress].usd;
+        const price = data[tokenAddress].usd.toFixed(2);
         cachePrices[tokenAddress] = price;
         logClaim(`price of ${tokenAddress}`, price);
         return price;

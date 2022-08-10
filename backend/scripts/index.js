@@ -10,6 +10,9 @@ const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, to
 const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_FEE, GAS_PRICE_L1, GAS_PRICE_OP, GAS_PRICE_AB, GAS_PRICE_BID, CLAIM_INTERVAL_SECONDS } = process.env;
 const deployment = require(DEPLOYMENTS);
 const claimInterval = CLAIM_INTERVAL_SECONDS * 1000;
+if (DIRECTION !== "O2A" && DIRECTION !== "A2O") {
+    throw "Supported DIRETION: 'O2A' or 'A2O'";
+}
 const gasPriceSrc = DIRECTION === "O2A" ? GAS_PRICE_OP : GAS_PRICE_AB;
 const gasPriceDst = DIRECTION === "O2A" ? GAS_PRICE_AB : GAS_PRICE_OP;
 const L2ToL1Delay = L1_CHAIN_ID == 1 ? 7 * 24 * 3600 * 1000 : (DIRECTION === "O2A" ? 24 * 3600 * 1000 : 60 * 1000);
@@ -105,47 +108,58 @@ async function traceDeposit(fromBlock, sync) {
     if (isNaN(toBlock)) {
         toBlock = fromBlock + 1;
     }
-    setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
+    setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
 }
 
 async function takeOrder(transferData, sync) {
-    const transferDataHash = utils.keccak256(
-        utils.defaultAbiCoder.encode([
-            "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
-            [transferData]));
-    if (await dstContract.claimedTransferHashes(transferDataHash)) {
-        logClaim("the claim is already bought:", transferDataHash.substring(0, 5));
-        return;
-    }
-    const lpFee = await dstContract.getLPFee(transferData);
-    const tokenAddrL1 = findL1Address(transferData[1]);
-    const tkPrice = await tokenPrice(tokenAddrL1);
-    const lpFeeInUsd = lpFee.mul(tkPrice * 10000).div(10000);
-    logClaim(`current LP fee in USD = ${utils.formatUnits(lpFeeInUsd)} max LP fee=${utils.formatUnits(transferData[4])}`);
-    if (lpFeeInUsd.lt(utils.parseEther(MIN_FEE))) {
-        const timeout = await timeoutForMinFee(transferData);
-        logClaim("timeout", timeout)
-        if (timeout > 0) {
-            logClaim(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
-            setTimeout(() => {
-                takeOrder(transferData, sync);
-            }, timeout);
+    try {
+        const transferDataHash = utils.keccak256(
+            utils.defaultAbiCoder.encode([
+                "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
+                [transferData]));
+        const key = transferDataHash.substring(0, 6);
+        const logClaimKey = (...msg) => logClaim(`key=${key}`, ...msg);
+        logClaimKey(`takeOrder...`)
+        if (await dstContract.claimedTransferHashes(transferDataHash)) {
+            logClaimKey("already bought");
             return;
         }
-    }
-    const data = transferData.map(t => String(t));
-    logClaim(`start claiming`, data);
-    if (await take(transferData)) {// possibility that this count could be another claim?
-        const transCount = await dstContract.transferCount();
-        const count = transCount.toNumber();
-        claimedCountStatus.set(count, { status: 'claimed' });
-        if (sync) {
-            const txHash = await declare(count);
-            if (txHash) {
-                claimedCountStatus.set(count, { status: 'declared', tx: txHash, time: Date.now() });
-                triggerL1Msg(count);
+        const minFee = utils.parseEther(MIN_FEE);
+        if (minFee.gt(transferData[4]) || BigNumber.from(transferData[4]).isZero()) {
+            return;
+        }
+        const lpFee = await dstContract.getLPFee(transferData);
+        const tokenAddrL1 = findL1Address(transferData[1]);
+        const tkPrice = await tokenPrice(tokenAddrL1);
+        const lpFeeInUsd = lpFee.mul((Number(tkPrice) * 100).toFixed(0)).div(100);
+        logClaimKey(`current LP fee in USD = ${utils.formatUnits(lpFeeInUsd)}`);
+        if (lpFeeInUsd.lt(minFee)) {
+            const timeout = await timeoutForMinFee(transferData);
+            logClaimKey("timeout", timeout);
+            if (timeout > 0) {
+                logClaimKey(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
+                setTimeout(() => {
+                    takeOrder(transferData, sync);
+                }, timeout);
+                return;
             }
         }
+        const data = transferData.map(t => String(t));
+        logClaimKey(`start claiming `, data);
+        if (await take(transferData, key)) {// possibility that this count could be another claim?
+            const transCount = await dstContract.transferCount();
+            const count = transCount.toNumber();
+            claimedCountStatus.set(count, { status: 'claimed' });
+            if (sync) {
+                const txHash = await declare(count);
+                if (txHash) {
+                    claimedCountStatus.set(count, { status: 'declared', tx: txHash, time: Date.now() });
+                    passingProof(count);
+                }
+            }
+        }
+    } catch (e) {
+        err('claim', `key=${transferDataHash.substring(0, 6)} takeOrder `, e);
     }
 }
 
@@ -159,7 +173,7 @@ function findL1Address(l2Addr) {
     throw "Cannot find L1 address for " + l2Addr;
 }
 
-async function take(transferData) {
+async function take(transferData, key) {
     try {
         let gasPrice = await dstProvider.getGasPrice();
         if (GAS_PRICE_BID > 0) {
@@ -170,16 +184,16 @@ async function take(transferData) {
         }
         const gasEst = await dstContract.estimateGas.claim(transferData);
         const gasLimit = gasEst.mul(4).div(3);
-        logClaim(`claim with gasLimit=${gasLimit} gasPrice=${utils.formatUnits(gasPrice, "gwei")} gwei`);
+        logClaim(`key=${key} claim with gasLimit=${gasLimit} gasPrice=${utils.formatUnits(gasPrice, "gwei")} gwei`);
         const tx = await dstContract.claim(transferData, { gasLimit, gasPrice });
         const receipt = await tx.wait();
         if (receipt.status == 1) {
-            logClaim("claim success");
+            logClaim(`key=${key} claim success`);
             return true;
         }
-        err("claim", "tx failed:", transferData, tx.hash);
+        err("claim", `key=${key} tx failed:`, tx.hash);
     } catch (e) {
-        err("claim", "claim failed:", transferData, e);
+        err("claim", `key=${key} claim failed:`, e);
     }
     return false;
 }
@@ -195,10 +209,6 @@ async function take(transferData) {
 //     uint256 expiration;
 // }
 async function timeoutForMinFee(transferData) {
-    const minFee = utils.parseEther(MIN_FEE);
-    if (minFee.gt(transferData[4]) || BigNumber.from(transferData[4]).isZero()) {
-        return -1;
-    }
     let timeSec = MIN_FEE * transferData[6] / (transferData[4] / 1e18);
     const { number, timestamp } = await dstProvider.getBlock("latest");
     logClaim("number", number, "timestamp", timestamp)
@@ -226,12 +236,13 @@ async function doWithdraw(fromCount, toCount) {
         const tx = await srcContract.processClaims(rewardDataList, [0], { gasLimit: gas.mul(4).div(3), gasPrice });
         const receipt = await tx.wait();
         if (receipt.status == 1) {
-            logWithdraw(`withdrawn ${toCount - fromCount + 1} deposits successfully 🤑! ${tx.hash}`);
+            logWithdraw(`withdrawn ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) successfully 🤑! ${tx.hash}`);
             for (let i = fromCount; i < toCount; i++) {
                 claimedCountStatus.delete(i);
             }
             return true;
         }
+        logWithdraw(`withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔! ${tx.hash}`);
     } catch (e) {
         err("withdraw", "withdraw failed 🤔", e.reason ? e.reason : e);
     }
@@ -287,11 +298,39 @@ async function withdrawn(count) {
     return false;
 }
 
-async function triggerL1Msg(count) {
+async function passingProof(count) {
+    let item = claimedCountStatus.get(count);
+    if (!item || !item.tx) {
+        //possibly withdrawn with higher count; no need to pass
+        err("sync", "unknown pending msg for count", count);
+        return;
+    }
     if (DIRECTION === "O2A") {
-        await triggerL1MsgArbitrum(count);
+        if (await triggerL1MsgArbitrum(count)) {
+            while (true) {
+                if (await knownHashOnionsL1(count)) {
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 5 * 1000));
+            }
+            if (await waitSyncedToL2(count)) {
+                await processWithdraw(count);
+            }
+        }
     } else {
-        await triggerL1MsgOptimism(count);
+        if (await triggerL1MsgOptimism(count)) {
+            while (true) {
+                if (await knownHashOnionsL1(count)) {
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 5 * 1000));
+            }
+            if (await updateHashToArbitrumFromL1(count)) {
+                if (await waitSyncedToL2(count)) {
+                    await processWithdraw(count);
+                }
+            }
+        }
     }
 }
 
@@ -300,10 +339,6 @@ async function triggerL1MsgOptimism(count) {
     try {
         logSyncCount("try to trigger Optimism to L1 tx");
         let item = claimedCountStatus.get(count);
-        if (!item || !item.tx) {
-            err("sync", "unknown pending msg for count", count);
-            return;
-        }
         const txHash = item.tx;
         const delay = item.time + L2ToL1Delay - Date.now();
         if (delay > 0) {
@@ -345,42 +380,28 @@ async function triggerL1MsgOptimism(count) {
                 if (recpt.status == 1) {
                     logSyncCount("relay message success!");
                     item.status = "triggered";
-                } else {
-                    err("sync", `count=${count} l2ToL1Msg.execute failed in tx: ${tx.hash}`);
-                    return;
+                    return true;
                 }
+                err("sync", `count=${count} l2ToL1Msg.execute failed in tx: ${tx.hash}`);
+                return false;
             }
         } catch (e) {
             err("sync", `count=${count} finalizeMessage failed`, e.reason ? e.reason : e);
-            return;
-        }
-        while (true) {
-            if (await knownHashOnionsL1(count)) {
-                break;
-            }
-            await new Promise(r => setTimeout(r, 3 * 1000));
-        }
-        if (await updateHashToArbitrumFromL1(count)) {
-            if (await waitSyncedToL2(count)) {
-                await processWithdraw(count);
-            }
+            return false;
         }
     } catch (e) {
         err("sync", `count=${count} trigger msg from Optimism to L1 failed.`, e.reason ? e.reason : e);
-        if (e.reason == "timemout") {
+        if (e.code === "TIMEOUT") {
             logSyncCount("retry triggerL1MsgOptimism");
-            await triggerL1MsgOptimism(count);
+            return await triggerL1MsgOptimism(count);
         }
+        return false;
     }
 }
 async function triggerL1MsgArbitrum(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
         const item = claimedCountStatus.get(count);
-        if (!item || !item.tx) {
-            err("sync", "unknown pending msg for count", count);
-            return;
-        }
         const txHash = item.tx;
         logSyncCount("get transaction receipt from Arbitrum to L1")
         const receipt = await dstProvider.getTransactionReceipt(txHash);
@@ -389,41 +410,36 @@ async function triggerL1MsgArbitrum(count) {
         const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
         const l2ToL1Msg = messages[0]
         if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
-            logSyncCount(`already executed`)
-        } else {
-            const delay = item.time + L2ToL1Delay - Date.now();
-            if (delay > 0) {
-                logSyncCount(`Challenge peroid: waiting for ${delay / 1000 / 3600} hours to trigger on L1`);
-                await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay);
+            logSyncCount(`already executed`);
+            return true;
+        }
+        const delay = item.time + L2ToL1Delay - Date.now();
+        if (delay > 0) {
+            logSyncCount(`Challenge peroid: waiting for ${delay / 1000 / 3600} hours to trigger on L1`);
+            await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay);
+        }
+        logSyncCount('Outbox entry exists! Trying to execute now');
+        let gasPrice = await dstProvider.getGasPrice();
+        if (gasPriceDst > 0) {
+            let gasPriceCeil = utils.parseUnits(gasPriceDst, "gwei");
+            if (gasPrice.gt(gasPriceCeil)) {
+                gasPrice = gasPriceCeil;
             }
-            logSyncCount('Outbox entry exists! Trying to execute now');
-            let gasPrice = await dstProvider.getGasPrice();
-            if (gasPriceDst > 0) {
-                let gasPriceCeil = utils.parseUnits(gasPriceDst, "gwei");
-                if (gasPrice.gt(gasPriceCeil)) {
-                    gasPrice = gasPriceCeil;
-                }
-            }
-            const res = await l2ToL1Msg.execute(dstProvider, { gasPrice });
-            const rec = await res.wait();
+        }
+        const res = await l2ToL1Msg.execute(dstProvider, { gasPrice });
+        const rec = await res.wait();
+        if (rec.status == 1) {
             logSyncCount(`Done! Your transaction is executed; status=${rec.status}`)
             item.status = "triggered";
-        }
-        while (true) {
-            if (await knownHashOnionsL1(count)) {
-                break;
-            }
-            await new Promise(r => setTimeout(r, 5 * 1000));
-        }
-        if (await waitSyncedToL2(count)) {
-            await processWithdraw(count);
+            return true;
         }
     } catch (e) {
         err("sync", `count=${count} trigger msg from Arbitrum to L1 failed.`, e.reason ? e.reason : e);
         if (e.code === "TIMEOUT") {
             logSyncCount("retry triggerL1MsgArbitrum");
-            await triggerL1MsgArbitrum(count);
+            return await triggerL1MsgArbitrum(count);
         }
+        return false;
     }
 }
 
@@ -456,6 +472,7 @@ async function processWithdraw(count) {
 async function updateHashToArbitrumFromL1(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     logSyncCount(`update hash to Arbitrum from L1`);
+    let item = claimedCountStatus.get(count);
     const newBytes = utils.defaultAbiCoder.encode(
         ['uint256'],
         [count]
@@ -507,7 +524,6 @@ async function updateHashToArbitrumFromL1(count) {
             { value: callValue, }
         );
         const setRec = await setTx.wait();
-        let item = claimedCountStatus.get(count);
         item.status = "l1ToL2Called";
         logSyncCount(`Set hash txn confirmed on L1!`);
         const l1TxReceipt = new L1TransactionReceipt(setRec);
@@ -517,7 +533,7 @@ async function updateHashToArbitrumFromL1(count) {
         try {
             result = await message.waitForStatus();
         } catch (e) {
-            err("sync", `count=${count}`, "waitForStatus", e.reason ? e.reason : e);
+            err("sync", `count=${count}`, "waitForStatus", e);
             const status = await message.status();
             result = { status };
         }
@@ -556,15 +572,14 @@ async function updateHashToArbitrumFromL1(count) {
 }
 
 async function checkSyncResult(count) {
-    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
+    logSync(`count=${count} checking hash on src...`);
     try {
         const onion = await srcContract.knownHashOnions(count);
         if (onion != constants.HashZero) {
-            logSyncCount("found synced hash on src!")
+            logSync(`count=${count} hash found on src`);
             claimedCountStatus.delete(count);
             return true;
         }
-        logSyncCount(`hash NOT on src`);
     } catch (e) {
         err("sync", `count=${count} check sync result failed: `, e.reason ? e.reason : e);
     }
@@ -576,9 +591,9 @@ async function knownHashOnionsL1(count) {
     try {
         const known = await l1Contract.knownHashOnions(count);
         if (known != constants.HashZero) {
+            logSync(`count=${count} hash found on L1`);
             return true;
         }
-        logSync(`count=${count} hash NOT on L1`);
     } catch (e) {
         err("sync", "query known hash on L1 failed. ", e.reason);
     }
@@ -608,8 +623,8 @@ async function syncCount(count) {
     let item = claimedCountStatus.get(count);
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
-        if (item && item.status == "l1ToL2RedeemFailed") {
-            // A2O only
+        // A2O only
+        if (item && item.status === "l1ToL2RedeemFailed") {
             if (!await updateHashToArbitrumFromL1(count)) {
                 err("sync", "updateHashToArbitrumFromL1 failed.");
                 return;
@@ -622,7 +637,7 @@ async function syncCount(count) {
         return;
     }
     if (item && item.tx) {
-        await triggerL1Msg(count);
+        await passingProof(count);
         return;
     }
     const [gap, transferCount] = await Promise.all([dstContract.GAP(), dstContract.transferCount()]);
@@ -634,7 +649,7 @@ async function syncCount(count) {
     logSyncCount("sync hash from dst chain.");
     if (txHash) {
         claimedCountStatus.set(count, { tx: txHash, time: Date.now() });
-        await triggerL1Msg(count);
+        await passingProof(count);
     }
 }
 
@@ -687,7 +702,7 @@ async function retrieveRewardData(fromCount, toCount) {
                 i = i + 1;
                 if (i >= fromCount && i <= toCount) {
                     result.push(r.args);
-                    logWithdraw(`add rewardData count=${i} on block${r.blockNumber}`);
+                    logWithdraw(`add rewardData count=${i} on block ${r.blockNumber}`);
                     if (result.length === total) {
                         break out;
                     }
@@ -739,8 +754,10 @@ async function exitHandler() {
     if (claimedCountStatus) {
         saveStatus(processedBlockSrc, claimedCountStatus);
     }
-    await diffBalances();
-    console.log("press any key to exit...")
+    if (!(process.argv.length > 2 && process.argv[2] === "status")) {
+        await diffBalances();
+        console.log("press any key to exit...")
+    }
     process.exit();
 }
 
