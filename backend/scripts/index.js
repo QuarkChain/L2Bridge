@@ -1,14 +1,13 @@
 const { ethers, BigNumber } = require("ethers");
-const fetch = require("node-fetch");
 const { utils, constants, providers, Wallet, Contract } = ethers;
 const sdk = require("@eth-optimism/sdk");
 const { L2TransactionReceipt, L2ToL1MessageStatus, L1TransactionReceipt, L1ToL2MessageStatus } = require('@arbitrum/sdk');
 const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1ToL2MessageGasEstimator');
 const { hexDataLength } = require('@ethersproject/bytes');
 require("dotenv").config();
-const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus } = require("./utils");
+const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
 
-const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_FEE, GAS_PRICE_L1, GAS_PRICE_OP, GAS_PRICE_AB, CLAIM_INTERVAL_SECONDS } = process.env;
+const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_FEE, GAS_PRICE_L1, GAS_PRICE_OP, GAS_PRICE_AB, GAS_PRICE_BID, CLAIM_INTERVAL_SECONDS } = process.env;
 const deployment = require(DEPLOYMENTS);
 const claimInterval = CLAIM_INTERVAL_SECONDS * 1000;
 const gasPriceSrc = DIRECTION === "O2A" ? GAS_PRICE_OP : GAS_PRICE_AB;
@@ -54,7 +53,7 @@ const dstContract = new Contract(dstAddress, [
 ], dstProvider).connect(dstSigner);
 const l1Contract = new Contract(l1Address, [
     "function knownHashOnions(uint256) public view returns (bytes32)",
-    "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceBid) public payable returns (uint256)"
+    "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceL2) public payable returns (uint256)"
 ], l1Provider).connect(l1Signer);
 
 const iface = new utils.Interface(['function updateChainHashFromL1(uint256 count,bytes32 chainHash)']);
@@ -72,16 +71,17 @@ let claimedCountStatus; //count => {txHash, timestamp}
 let processedBlockSrc;
 
 let balances = {};
-const cachePrices = {};
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock;
     try {
         let transferData = [];
         toBlock = await srcProvider.getBlockNumber();
-        const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-        logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
-        transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
+        if (toBlock > fromBlock) {
+            const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
+            logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+            transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
+        }
         for (let i = 0; i < transferData.length; i++) {
             logClaim(`found transferData with amount ${utils.formatEther(transferData[i][3])}`);
             if (Date.now() + L2ToL1Delay > transferData[i][7] * 1000) {
@@ -96,14 +96,6 @@ async function traceDeposit(fromBlock, sync) {
                 }, timeout);
                 continue;
             }
-            const transferDataHash = utils.keccak256(
-                utils.defaultAbiCoder.encode([
-                    "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
-                    [transferData[i]]));
-            if (await dstContract.claimedTransferHashes(transferDataHash)) {
-                logClaim("the claim is already bought");
-                continue;
-            }
             await takeOrder(transferData[i], sync);
         }
         processedBlockSrc = toBlock;
@@ -111,20 +103,28 @@ async function traceDeposit(fromBlock, sync) {
         err("claim", e.reason ? e.reason : e);
     }
     if (isNaN(toBlock)) {
-        toBlock = processedBlockSrc;
+        toBlock = fromBlock + 1;
     }
     setTimeout(() => traceDeposit(toBlock, sync), claimInterval);
 }
 
 async function takeOrder(transferData, sync) {
+    const transferDataHash = utils.keccak256(
+        utils.defaultAbiCoder.encode([
+            "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
+            [transferData]));
+    if (await dstContract.claimedTransferHashes(transferDataHash)) {
+        logClaim("the claim is already bought:", transferDataHash.substring(0, 5));
+        return;
+    }
     const lpFee = await dstContract.getLPFee(transferData);
     const tokenAddrL1 = findL1Address(transferData[1]);
     const tkPrice = await tokenPrice(tokenAddrL1);
-    const lpFeeInUsd = lpFee.mul(tkPrice * 100).div(100);
+    const lpFeeInUsd = lpFee.mul(tkPrice * 10000).div(10000);
     logClaim(`current LP fee in USD = ${utils.formatUnits(lpFeeInUsd)} max LP fee=${utils.formatUnits(transferData[4])}`);
     if (lpFeeInUsd.lt(utils.parseEther(MIN_FEE))) {
         const timeout = await timeoutForMinFee(transferData);
-        console.log("timeout", timeout)
+        logClaim("timeout", timeout)
         if (timeout > 0) {
             logClaim(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
             setTimeout(() => {
@@ -159,32 +159,19 @@ function findL1Address(l2Addr) {
     throw "Cannot find L1 address for " + l2Addr;
 }
 
-async function tokenPrice(tokenAddress) {
-    tokenAddress = tokenAddress.toLowerCase();
-    try {
-        const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
-        const resp = await fetch(url);
-        const data = await resp.json();
-        const price = data[tokenAddress].usd;
-        cachePrices[tokenAddress] = price;
-        logClaim(`price of ${tokenAddress}`, price);
-        return price;
-    } catch (e) {
-        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
-        return cachePrices[tokenAddress] || 1;
-    }
-}
-
 async function take(transferData) {
-    let tx;
     try {
-        const gasLimit = 200000;
-        if (gasPriceDst > 0) {
-            const gasPrice = utils.parseUnits(gasPriceDst, "gwei");
-            tx = await dstContract.claim(transferData, { gasLimit, gasPrice });
-        } else {
-            tx = await dstContract.claim(transferData, { gasLimit });
+        let gasPrice = await dstProvider.getGasPrice();
+        if (GAS_PRICE_BID > 0) {
+            let gasPriceCeil = utils.parseUnits(GAS_PRICE_BID, "gwei");
+            if (gasPrice.gt(gasPriceCeil)) {
+                gasPrice = gasPriceCeil;
+            }
         }
+        const gasEst = await dstContract.estimateGas.claim(transferData);
+        const gasLimit = gasEst.mul(4).div(3);
+        logClaim(`claim with gasLimit=${gasLimit} gasPrice=${utils.formatUnits(gasPrice, "gwei")} gwei`);
+        const tx = await dstContract.claim(transferData, { gasLimit, gasPrice });
         const receipt = await tx.wait();
         if (receipt.status == 1) {
             logClaim("claim success");
@@ -214,7 +201,7 @@ async function timeoutForMinFee(transferData) {
     }
     let timeSec = MIN_FEE * transferData[6] / (transferData[4] / 1e18);
     const { number, timestamp } = await dstProvider.getBlock("latest");
-    logClaim("timestamp", timestamp, "number", number)
+    logClaim("number", number, "timestamp", timestamp)
     timeSec = timeSec + parseInt(transferData[5]) - timestamp;
     return timeSec * 1000;
 }
@@ -228,14 +215,15 @@ async function doWithdraw(fromCount, toCount) {
             return false;
         }
         const gas = await srcContract.estimateGas.processClaims(rewardDataList, [0]);
-        logWithdraw("withdraw gas", gas.toString())
-        let tx;
+        let gasPrice = await srcProvider.getGasPrice();
         if (gasPriceSrc > 0) {
-            const gasPrice = utils.parseUnits(gasPriceSrc, "gwei");
-            tx = await srcContract.processClaims(rewardDataList, [0], { gasLimit: gas.mul(4).div(3), gasPrice });
-        } else {
-            tx = await srcContract.processClaims(rewardDataList, [0], { gasLimit: gas.mul(4).div(3) });
+            let gasPriceCeil = utils.parseUnits(gasPriceSrc, "gwei");
+            if (gasPrice.gt(gasPriceCeil)) {
+                gasPrice = gasPriceCeil;
+            }
         }
+        logWithdraw("withdraw gas", gas.toString(), "gasPrice", utils.formatUnits(gasPrice, "gwei"), "gwei")
+        const tx = await srcContract.processClaims(rewardDataList, [0], { gasLimit: gas.mul(4).div(3), gasPrice });
         const receipt = await tx.wait();
         if (receipt.status == 1) {
             logWithdraw(`withdrawn ${toCount - fromCount + 1} deposits successfully 🤑! ${tx.hash}`);
@@ -252,35 +240,26 @@ async function doWithdraw(fromCount, toCount) {
 async function declare(count) {
     logSync("declare for count", String(count));
     try {
+        let gasPrice = await dstProvider.getGasPrice();
+        if (gasPriceDst > 0) {
+            let gasPriceCeil = utils.parseUnits(gasPriceDst, "gwei");
+            if (gasPrice.gt(gasPriceCeil)) {
+                gasPrice = gasPriceCeil;
+            }
+        }
         let tx;
         if (DIRECTION === "A2O") {
             try {
                 const maxGas = 1000000;
-                const gas = await dstContract.estimateGas.declareNewHashChainHeadToArbi(count, maxGas);
-                logSync("declareNewHashChainHeadToArbi gas", String(gas));
-                if (gasPriceDst > 0) {
-                    const gasPrice = utils.parseUnits(gasPriceDst, "gwei");
-                    tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas, { gasPrice });
-                } else {
-                    tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas);
-                }
+                tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas, { gasPrice });
             } catch (e) {
-                err("sync", "declare count=", count, e.error);
-                throw "declareNewHashChainHeadToArbi error";
+                err('sync', "declareNewHashChainHeadToArbi error");
             }
         } else {
             try {
-                const gas = await dstContract.estimateGas.declareNewHashChainHead(count);
-                logSync("declareNewHashChainHead gas", String(gas));
-                if (gasPriceDst > 0) {
-                    const gasPrice = utils.parseUnits(gasPriceDst, "gwei");
-                    tx = await dstContract.declareNewHashChainHead(count, { gasPrice });
-                } else {
-                    tx = await dstContract.declareNewHashChainHead(count);
-                }
+                tx = await dstContract.declareNewHashChainHead(count, { gasPrice });
             } catch (e) {
-                err("sync", "declare count=", count, e);
-                throw "declareNewHashChainHead error";
+                err('sync', "declareNewHashChainHead error");
             }
         }
         const receipt = await tx.wait();
@@ -290,7 +269,7 @@ async function declare(count) {
             return tx.hash;
         }
     } catch (e) {
-        err("sync", "declareNewHashChainHead failed.", e.reason ? e.reason : e);
+        err("sync", `count=${count} declare failed`, e);
         if (e.code === "TIMEOUT") {
             return await declare(count);
         }
@@ -319,7 +298,7 @@ async function triggerL1Msg(count) {
 async function triggerL1MsgOptimism(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
-        logSyncCount("try to trigger L2 to Optimism tx");
+        logSyncCount("try to trigger Optimism to L1 tx");
         let item = claimedCountStatus.get(count);
         if (!item || !item.tx) {
             err("sync", "unknown pending msg for count", count);
@@ -350,17 +329,17 @@ async function triggerL1MsgOptimism(count) {
         }
         logSyncCount("start finalizing");
         try {
-            let tx;
             const gas = await opL1Messenger.estimateGas.finalizeMessage(txHash);
-            const price = await l1Provider.getGasPrice();
-            const cost = gas.mul(price);
-            logSyncCount(`triggerL1MsgOptimism will cost ${utils.formatEther(cost)} ether`);
+            let gasPrice = await l1Provider.getGasPrice();
             if (GAS_PRICE_L1 > 0) {
-                const gasPrice = utils.parseUnits(GAS_PRICE_L1, "gwei");
-                tx = await opL1Messenger.finalizeMessage(txHash, { gasPrice });
-            } else {
-                tx = await opL1Messenger.finalizeMessage(txHash);
+                const gasPriceCeil = utils.parseUnits(GAS_PRICE_L1, "gwei");
+                if (gasPrice.gt(gasPriceCeil)) {
+                    gasPrice = gasPriceCeil;
+                }
             }
+            const cost = gas.mul(gasPrice);
+            logSyncCount(`triggerL1MsgOptimism gasPrice=${utils.formatUnits(gasPrice, "gwei")}; will cost ${utils.formatEther(cost)} ether`);
+            const tx = await opL1Messenger.finalizeMessage(txHash, { gasPrice });
             if (tx) {
                 const recpt = await tx.wait();
                 if (recpt.status == 1) {
@@ -417,8 +396,15 @@ async function triggerL1MsgArbitrum(count) {
                 logSyncCount(`Challenge peroid: waiting for ${delay / 1000 / 3600} hours to trigger on L1`);
                 await l2ToL1Msg.waitUntilReadyToExecute(dstProvider, delay);
             }
-            logSyncCount('Outbox entry exists! Trying to execute now')
-            const res = await l2ToL1Msg.execute(dstProvider);
+            logSyncCount('Outbox entry exists! Trying to execute now');
+            let gasPrice = await dstProvider.getGasPrice();
+            if (gasPriceDst > 0) {
+                let gasPriceCeil = utils.parseUnits(gasPriceDst, "gwei");
+                if (gasPrice.gt(gasPriceCeil)) {
+                    gasPrice = gasPriceCeil;
+                }
+            }
+            const res = await l2ToL1Msg.execute(dstProvider, { gasPrice });
             const rec = await res.wait();
             logSyncCount(`Done! Your transaction is executed; status=${rec.status}`)
             item.status = "triggered";
@@ -477,15 +463,28 @@ async function updateHashToArbitrumFromL1(count) {
     const newBytesLength = hexDataLength(newBytes) + 4 // 4 bytes func identifier
     try {
         const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(srcProvider);
+        let gasPriceL1 = await l1Provider.getGasPrice();
+        if (GAS_PRICE_L1 > 0) {
+            const gasPriceCeil = utils.parseUnits(GAS_PRICE_L1, "gwei");
+            if (gasPriceL1.gt(gasPriceCeil)) {
+                gasPriceL1 = gasPriceCeil;
+            }
+        }
         const _submissionPriceWei = await l1ToL2MessageGasEstimate.estimateSubmissionFee(
             l1Provider,
-            await l1Provider.getGasPrice(),
+            gasPriceL1,
             newBytesLength
         );
         logSyncCount(`Current retryable base submission price: ${utils.formatUnits(_submissionPriceWei, "gwei")} gwei`);
         const submissionPriceWei = _submissionPriceWei.mul(5);
-        const gasPriceBid = await srcProvider.getGasPrice();
-        logSyncCount(`L2 gas price: ${utils.formatUnits(gasPriceBid, "gwei")} gwei`);
+        let gasPriceL2 = await srcProvider.getGasPrice();
+        if (gasPriceSrc > 0) {
+            let gasPriceCeil = utils.parseUnits(gasPriceSrc, "gwei");
+            if (gasPriceL2.gt(gasPriceCeil)) {
+                gasPriceL2 = gasPriceCeil;
+            }
+        }
+        logSyncCount(`L2 gas price: ${utils.formatUnits(gasPriceL2, "gwei")} gwei`);
         const maxGas = await l1ToL2MessageGasEstimate.estimateRetryableTicketGasLimit(
             l1Address,
             srcAddress,
@@ -496,15 +495,15 @@ async function updateHashToArbitrumFromL1(count) {
             utils.parseEther('1'),
             submissionPriceWei,
             100000,
-            gasPriceBid
+            gasPriceL2
         );
-        const callValue = submissionPriceWei.add(gasPriceBid.mul(maxGas));
+        const callValue = submissionPriceWei.add(gasPriceL2.mul(maxGas));
         logSyncCount(`Sending hash to L2 with ${utils.formatEther(callValue)} ether callValue for L2 fees.`);
         const setTx = await l1Contract.setChainHashInL2(
             count,
             submissionPriceWei,
             maxGas,
-            gasPriceBid,
+            gasPriceL2,
             { value: callValue, }
         );
         const setRec = await setTx.wait();
@@ -530,16 +529,20 @@ async function updateHashToArbitrumFromL1(count) {
         }
         if (result.status === L1ToL2MessageStatus.FUNDS_DEPOSITED_ON_L2) {
             logSyncCount("ready for redeem");
-            const response = await message.redeem();
-            const receipt = await response.wait();
-            if (receipt.status == 1) {
-                logSyncCount("redeem successfully");
-                item.status = "l1ToL2Redeemed";
-                return true;
+            try {
+                const response = await message.redeem({ gasPrice: gasPriceL1 });
+                const receipt = await response.wait();
+                if (receipt.status == 1) {
+                    logSyncCount("redeem successfully");
+                    item.status = "l1ToL2Redeemed";
+                    return true;
+                }
+            } catch (e) {
+                err("sync", `count=${count}`, "redeem", e.reason ? e.reason : e);
+                const status = await message.status();
+                result = { status };
             }
         }
-        item.status = "l1ToL2RedeemFailed";
-        logSyncCount(`L2 retryable txn FAILED with status ${result.status}`);
     } catch (e) {
         err("sync", `count=${count}`, "updateHashToArbitrumFromL1", e.reason ? e.reason : e);
         if (e.code === "TIMEOUT") {
@@ -547,6 +550,8 @@ async function updateHashToArbitrumFromL1(count) {
             return await updateHashToArbitrumFromL1(count);
         }
     }
+    item.status = "l1ToL2RedeemFailed";
+    logSyncCount(`L2 retryable txn FAILED with status ${result.status}`);
     return false;
 }
 
@@ -587,7 +592,11 @@ async function syncCount(count) {
         return;
     }
     if (await withdrawn(count)) {
-        claimedCountStatus.delete(count);
+        for (let c of claimedCountStatus.keys()) {
+            if (c <= count) {
+                claimedCountStatus.delete(c);
+            }
+        }
         logSyncCount("already withdrawn");
         return;
     }
@@ -700,7 +709,14 @@ async function retrieveRewardData(fromCount, toCount) {
 }
 
 async function approve() {
-    logMain("Checking token allowance...")
+    logMain("Checking token allowance...");
+    let gasPrice = await dstProvider.getGasPrice();
+    if (gasPriceDst > 0) {
+        let gasPriceCeil = utils.parseUnits(gasPriceDst, "gwei");
+        if (gasPrice.gt(gasPriceCeil)) {
+            gasPrice = gasPriceCeil;
+        }
+    }
     for (let t of dstTokens) {
         const erc20Token = new Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
@@ -708,7 +724,7 @@ async function approve() {
         ], dstSigner);
         const allowed = await erc20Token.allowance(dstSigner.address, dstAddress);
         if (allowed.isZero()) {
-            await erc20Token.approve(dstAddress, constants.MaxUint256);
+            await erc20Token.approve(dstAddress, constants.MaxUint256, { gasPrice });
             logSync("approved token", t)
         }
     }
@@ -724,17 +740,21 @@ async function exitHandler() {
         saveStatus(processedBlockSrc, claimedCountStatus);
     }
     await diffBalances();
+    console.log("press any key to exit...")
     process.exit();
 }
 
 async function queryBalances() {
-    logMain(`Query balances...`)
     const bals = {};
-    bals.ETH = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
-    for (let t of tokens) {
-        const srcAddr = DIRECTION === "O2A" ? t.Optimism : t.Arbitrum;
-        const dstAddr = DIRECTION === "O2A" ? t.Arbitrum : t.Optimism;
-        bals[t.name] = await Promise.all([getBalance(srcAddr, srcSigner), getBalance(dstAddr, dstSigner)]);
+    try {
+        bals.ETH = await Promise.all([l1Signer.getBalance(), srcSigner.getBalance(), dstSigner.getBalance()]);
+        for (let t of tokens) {
+            const srcAddr = DIRECTION === "O2A" ? t.Optimism : t.Arbitrum;
+            const dstAddr = DIRECTION === "O2A" ? t.Arbitrum : t.Optimism;
+            bals[t.name] = await Promise.all([getBalance(srcAddr, srcSigner), getBalance(dstAddr, dstSigner)]);
+        }
+    } catch (e) {
+        console.log("query balances error", e.code)
     }
     return bals;
 }
@@ -751,9 +771,13 @@ const fmt = (v) => utils.formatEther(v);
 const prt = (a, b) => `${fmt(a)}\t${fmt(b)}\t${a.lt(b) ? '+' : ''}${fmt(b.sub(a))}`;
 
 async function diffBalances() {
-    logMain(`Checking balances change...`)
+    logMain(`Checking balances change; please wait...`)
     const [l10e, src0e, dst0e] = balances.ETH;
     const newBals = await queryBalances();
+    if (!newBals.ETH) {
+        logMain(`Checking balances change failed.`)
+        return;
+    }
     const [l1e, srce, dste] = newBals.ETH;
     console.log(`Ethereum ETH: ${prt(l10e, l1e)} `);
     console.log(`${DIRECTION === 'O2A' ? 'Optimism' : 'Arbitrum'} ETH: ${prt(src0e, srce)}`);

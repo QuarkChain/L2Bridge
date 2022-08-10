@@ -1,6 +1,11 @@
 const fs = require("fs");
+const fetch = require("node-fetch");
 const { L1_CHAIN_ID, DIRECTION } = process.env;
 const storageFile = __dirname + `/../data/${L1_CHAIN_ID}/${DIRECTION}.json`;
+
+
+let cachePrices = {};
+let cacheGasPrice;
 
 function log(module, ...msg) {
     console.log(new Date().toLocaleString().replace(', ', '|').replace(' ', ''), `[${module}]`, ...msg);
@@ -61,4 +66,35 @@ const loadStatus = () => {
     return { processedBlockSrc, claimedCountStatus }
 }
 
-module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus };
+async function tokenPrice(tokenAddress) {
+    tokenAddress = tokenAddress.toLowerCase();
+    try {
+        const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const price = data[tokenAddress].usd;
+        cachePrices[tokenAddress] = price;
+        logClaim(`price of ${tokenAddress}`, price);
+        return price;
+    } catch (e) {
+        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
+        return cachePrices[tokenAddress] || 1;
+    }
+}
+
+async function fastGasPrice() {
+    try {
+        const url = `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${ETHERSCAN_API_KEY}`
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const price = data.result.FastGasPrice;
+        cacheGasPrice = price;
+        logSync(`fastGasPrice`, fastGasPrice);
+        return price;
+    } catch (e) {
+        logSync(`get gas price failed`,  e.code ? e.code : e);
+        return cacheGasPrice;
+    }
+}
+
+module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice };

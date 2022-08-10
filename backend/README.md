@@ -20,9 +20,14 @@ RPC_L1="https://goerli.infura.io/v3/xxx"
 RPC_OP="https://goerli.optimism.io/"
 # Arbitrum RPC URL
 RPC_AB="https://goerli-rollup.arbitrum.io/rpc/"
+# L1 gas price upper limit, used if realtime gas price is higher; always use realtime gas price if set to 0
 GAS_PRICE_L1=0
+# Optimism gas price upper limit, used if realtime gas price is higher; always use realtime gas price if set to 0
 GAS_PRICE_OP=0
+# Arbitrum gas price upper limit, used if realtime gas price is higher; always use realtime gas price if set to 0
 GAS_PRICE_AB=0
+# gas price upper limit to bid a deposit order
+GAS_PRICE_BID=5
 # LP fee threshold to claim in USD
 MIN_FEE=0.01
 # Query interval of user deposit event in seconds
