@@ -42,7 +42,7 @@ const srcContract = new Contract(srcAddress, [
     "function processClaims((bytes32 transferDataHash,address claimer,address srcTokenAddress,uint256 amount)[] memory rewardDataList,uint256[] memory skipFlags) public",
 ], srcProvider).connect(srcSigner);
 const dstContract = new Contract(dstAddress, [
-    "event Claim(bytes32 indexed transferDataHash,address indexed claimer,address indexed srcTokenAddress,uint256 amount)",
+    "event Claim(bytes32 indexed transferDataHash,address indexed claimer,address indexed srcTokenAddress,uint256 amount,uint256 count)",
     "event L2ToL1TxCreated(uint256, bytes32)",
     "function GAP() public view returns (uint256)",
     "function rewardHashOnion() public view returns (byte32)",
@@ -79,7 +79,7 @@ async function traceDeposit(fromBlock, sync) {
     try {
         let transferData = [];
         toBlock = await srcProvider.getBlockNumber();
-        if (toBlock > fromBlock) {
+        if (toBlock >= fromBlock) {
             const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
             logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
             transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
@@ -102,9 +102,6 @@ async function traceDeposit(fromBlock, sync) {
         }
     } catch (e) {
         err("claim", e.reason ? e.reason : e);
-    }
-    if (isNaN(toBlock)) {
-        toBlock = fromBlock;
     }
     processedBlockSrc = toBlock;
     setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
@@ -145,9 +142,8 @@ async function takeOrder(transferData, sync) {
         }
         const data = transferData.map(t => String(t));
         logClaimKey(`start claiming `, data);
-        if (await take(transferData, key)) {// possibility that this count could be another claim?
-            const transCount = await dstContract.transferCount();
-            const count = transCount.toNumber();
+        const count = await take(transferData, key);
+        if (count > 0) {
             claimedCountStatus.set(count, { status: 'claimed' });
             if (sync) {
                 const txHash = await declare(count);
@@ -202,16 +198,18 @@ async function take(transferData, key) {
             if (receipt.status == 1) {
                 if (receipt.effectiveGasPrice) {
                     const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-                    logClaim(`key=${key} claim success with cost of ${utils.formatEther(cost)} ether`);
+                    logClaim(`key=${key} claimed successfully with cost of ${utils.formatEther(cost)} ether`);
                 }
-                return true;
+                const count = receipt.events.filter(r => r.event === 'Claim')[0].args.count.toNumber();
+                logClaim(`key=${key} claimed successfully as count ${count}`);
+                return count;
             }
             err("claim", `key=${key} tx failed:`, tx.hash);
         }
     } catch (e) {
         err("claim", e);
     }
-    return false;
+    return 0;
 }
 
 async function timeoutForMinFee(transferData) {
@@ -495,6 +493,7 @@ async function updateHashToArbitrumFromL1(count) {
     try {
         const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(srcProvider);
         const gasPriceL1 = await l1Provider.getGasPrice();
+        logSyncCount(`L1 gas price: ${utils.formatUnits(gasPriceL1, "gwei")} gwei`);
         const _submissionPriceWei = await l1ToL2MessageGasEstimate.estimateSubmissionFee(
             l1Provider,
             gasPriceL1,
@@ -746,7 +745,7 @@ async function retrieveRewardData(fromCount, toCount) {
             for (r of res) {
                 i = i + 1;
                 if (i >= fromCount && i <= toCount) {
-                    result.push(r.args);
+                    result.push(r.args.slice(0, 4));
                     logWithdraw(`add rewardData count=${i} on block ${r.blockNumber}`);
                     if (result.length === total) {
                         break out;
@@ -760,10 +759,6 @@ async function retrieveRewardData(fromCount, toCount) {
         }
     } catch (e) {
         err("withdraw", "query Claim events failed:", e.reason ? e.reason : e);
-        if (e.code === "TIMEOUT") {
-            logWithdraw('retry retrieveRewardData');
-            return await retrieveRewardData(fromCount, toCount);
-        }
     }
     return result;
 }

@@ -48,44 +48,44 @@
   "tokens": [
    {
     "name": "TEST",
-    "L1":"0x514910771af9ca656af840dff83e8264ecf986ca",
+    "L1": "0x514910771af9ca656af840dff83e8264ecf986ca",
     "Optimism": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
     "Arbitrum": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325"
    }
   ],
   "O2A": {
-   "genesisSrc": 253769,
-   "genesisDst": 88306,
-   "bridge": "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736",
+   "genesisSrc": 363262,
+   "genesisDst": 95212,
+   "bridge": "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
    "bridgeArgs": [
     "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
     "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
    ],
-   "bridgeSrc": "0xeE214CB2E99cc17A57C4fB71aB436Ad79980a119",
+   "bridgeSrc": "0x7b1E1ECf3BCd2Bf16eECdDaAc43316813d2d9777",
    "bridgeSrcArgs": [
-    "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736"
+    "0x4fbA256CDeB495a9eeE4b18001B940a174500558"
    ],
-   "bridgeDest": "0x0B1dc39be156539525Cc72B2C54A99F9D43563BF",
+   "bridgeDest": "0x04b820431E02fA97De8d6B7d639fFbA300A8617E",
    "bridgeDestArgs": [
-    "0x08eA43E844C18Caec10ae40e9cfc77d4E01bb736",
+    "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
     100
    ]
   },
   "A2O": {
-   "genesisSrc": 88309,
-   "genesisDst": 253821,
-   "bridge": "0x348F7901FdFc9CC6b46F944E08D388254a43200d",
+   "genesisSrc": 95209,
+   "genesisDst": 363226,
+   "bridge": "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
    "bridgeArgs": [
     "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
     "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
    ],
-   "bridgeSrc": "0xc5C6e34605e511000C1a0052aA5CD539e869B9e7",
+   "bridgeSrc": "0xa8C38635D73AF4E36598d062D971296DBD577a24",
    "bridgeSrcArgs": [
-    "0x348F7901FdFc9CC6b46F944E08D388254a43200d"
+    "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b"
    ],
-   "bridgeDest": "0xec45082f8f89e1d6E516aC132D8bC2A78610Ec78",
+   "bridgeDest": "0xb4b6FC1F5Eb3822E3cAA14960646CDd63AB2cDDA",
    "bridgeDestArgs": [
-    "0x348F7901FdFc9CC6b46F944E08D388254a43200d",
+    "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
     100
    ]
   }
