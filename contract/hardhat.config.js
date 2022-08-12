@@ -16,7 +16,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY} =
+const { INFURA_PROJECT_ID, PRIVATE_KEY, REPORT_GAS, ETHERSCAN_API_KEY, OPT_KOVAN_API_KEY, ARBISCAN_API_KEY} =
   process.env;
 
 /**
@@ -35,14 +35,33 @@ module.exports = {
       url: `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
-    arbitrum: {
+    goerli: {
+      url: `https://goerli.infura.io/v3/${INFURA_PROJECT_ID}`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    arbitrumTestnet: {
       url: `https://arbitrum-rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`,
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
-    optimisticKovan: {
-      url: `https://optimism-kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
+    nitro: {
+      url: "https://nitro-devnet.arbitrum.io/rpc",
       accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
     },
+    optimisticKovan: {
+      chainId: 69,
+      url: `https://kovan.optimism.io/`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    bobaRinkeby: {
+      chainId: 28,
+      url: `https://rinkeby.boba.network/`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    },
+    arbitrumRinkeby: {
+      chainId: 421611,
+      url: `https://rinkeby.arbitrum.io/rpc`,
+      accounts: PRIVATE_KEY !== undefined ? [PRIVATE_KEY] : [],
+    }
   },
   gasReporter: {
     enabled: REPORT_GAS !== undefined,
@@ -52,6 +71,9 @@ module.exports = {
     apiKey: {
       kovan: ETHERSCAN_API_KEY,
       optimisticKovan: OPT_KOVAN_API_KEY,
+      goerli: ETHERSCAN_API_KEY,
+      rinkeby: ETHERSCAN_API_KEY,
+      arbitrumTestnet: ARBISCAN_API_KEY,
     }
   }
 };

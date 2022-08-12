@@ -12,8 +12,6 @@ contract OptimismBridgeSource is L2BridgeSource {
             0x4200000000000000000000000000000000000007
         );
 
-    event L2ToL1TxCreated(uint256 indexed withdrawalId);
-
     constructor(address _l1Target) {
         l1Target = _l1Target;
     }
@@ -39,6 +37,6 @@ contract OptimismBridgeSource is L2BridgeSource {
             messenger.xDomainMessageSender() == l1Target,
             "only updateable by L1"
         );
-        knownHashOnions[count] = chainHash;
+        super.updateChainHashFromL1(count, chainHash);
     }
 }

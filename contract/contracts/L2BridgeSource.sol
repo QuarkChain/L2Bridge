@@ -19,13 +19,13 @@ contract L2BridgeSource {
     mapping(bytes32 => uint256) public transferStatus;
     mapping(uint256 => bytes32) public knownHashOnions;
 
-    uint256 processedCount;
+    uint256 public processedCount;
     bytes32 processedRewardHashOnion;
 
     event Deposit(
-        address srcTokenAddress,
-        address dstTokenAddress,
-        address source,
+        address indexed srcTokenAddress,
+        address indexed dstTokenAddress,
+        address indexed source,
         address destination,
         uint256 amount,
         uint256 fee,
@@ -42,6 +42,10 @@ contract L2BridgeSource {
     function deposit(L2BridgeLib.TransferData memory transferData) public {
         bytes32 key = keccak256(abi.encode(transferData));
         require(transferStatus[key] == XFER_NEW, "not new");
+        require(
+            transferData.expiration - block.timestamp > 8 days, 
+            "expiration should be longer than dispute period"
+        );
 
         uint256 amountPlusFee = (transferData.amount *
             (10000 + CONTRACT_FEE_BASIS_POINTS)) / 10000;
