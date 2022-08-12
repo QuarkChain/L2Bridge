@@ -129,12 +129,6 @@ export default {
       if (!this.networkId) {
         return undefined;
       }
-      if (this.currentNetworkName) {
-        let chainInfo = chainInfos.find((v) => v.chainName.toLowerCase() === this.currentNetworkName.toLowerCase());
-        if(chainInfo && chainInfo.chainId === this.networkId){
-          return chainInfo;
-        }
-      }
       return chainInfos.find((v) => v.chainId === this.networkId);
     },
     fromChainName() {
@@ -267,7 +261,7 @@ export default {
     },
     startQueryState() {
       if (this.loadInterval) {
-        return;
+        clearInterval(this.loadInterval);
       }
       this.queryState();
       this.loadInterval = setInterval(this.queryState, 5 * 60000,); // 5 min
@@ -276,7 +270,7 @@ export default {
       const networkChain = this.fromChainName;
       const result = await queryTxState(this.queryList[networkChain]);
       for (const event of result) {
-        if (!event.isClaim) {
+        if (event.isClaim) {
           // remove
           this.queryList[networkChain] = this.queryList[networkChain]
               .filter(value => value.hash !== value.hash);

@@ -55,7 +55,7 @@ $family-sans-serif: KGBrokenVesselsSketch;
     min-height: 30px;
   }
   .navbar-menu {
-    background: #F9F8FD;
+    background: #F6F2EC;
     border-radius: 10px;
   }
 }
