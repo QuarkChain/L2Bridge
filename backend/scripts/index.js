@@ -4,6 +4,7 @@ const sdk = require("@eth-optimism/sdk");
 const { L2TransactionReceipt, L2ToL1MessageStatus, L1TransactionReceipt, L1ToL2MessageStatus } = require('@arbitrum/sdk');
 const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1ToL2MessageGasEstimator');
 const { hexDataLength } = require('@ethersproject/bytes');
+const { NonceManager } = require("@ethersproject/experimental");
 require("dotenv").config();
 const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
 
@@ -34,13 +35,17 @@ const srcSigner = new Wallet(PRIVATE_KEY, srcProvider);
 const dstSigner = new Wallet(PRIVATE_KEY, dstProvider);
 const l1Signer = new Wallet(PRIVATE_KEY, l1Provider);
 
+const srcNonceManager = new NonceManager(srcSigner);
+const dstNonceManager = new NonceManager(dstSigner);
+const l1NonceManager = new NonceManager(l1Signer);
+
 const srcContract = new Contract(srcAddress, [
     "event Deposit(address indexed srcTokenAddress,address indexed dstTokenAddress,address indexed source,address destination,uint256 amount,uint256 fee,uint256 startTime,uint256 feeRampup,uint256 expiration)",
     "function transferStatus(bytes32) public view returns (uint256)",
     "function knownHashOnions(uint256) public view returns (bytes32)",
     "function processedCount() public view returns (uint256)",
     "function processClaims((bytes32 transferDataHash,address claimer,address srcTokenAddress,uint256 amount)[] memory rewardDataList,uint256[] memory skipFlags) public",
-], srcProvider).connect(srcSigner);
+], srcProvider).connect(srcNonceManager);
 const dstContract = new Contract(dstAddress, [
     "event Claim(bytes32 indexed transferDataHash,address indexed claimer,address indexed srcTokenAddress,uint256 amount,uint256 count)",
     "event L2ToL1TxCreated(uint256, bytes32)",
@@ -52,17 +57,17 @@ const dstContract = new Contract(dstAddress, [
     "function claim((address srcTokenAddress,address dstTokenAddress,address destination,uint256 amount,uint256 fee,uint256 startTime,uint256 feeRampup, uint256 expiration) memory transferData) public",
     "function declareNewHashChainHeadToArbi(uint256 count,uint32 maxGas) public",
     "function declareNewHashChainHead(uint256 count) public",
-], dstProvider).connect(dstSigner);
+], dstProvider).connect(dstNonceManager);
 const l1Contract = new Contract(l1Address, [
     "function knownHashOnions(uint256) public view returns (bytes32)",
     "function setChainHashInL2(uint256 count,uint256 maxSubmissionCost,uint256 maxGas,uint256 gasPriceL2) public payable returns (uint256)"
-], l1Provider).connect(l1Signer);
+], l1Provider).connect(l1NonceManager);
 
 const iface = new utils.Interface(['function updateChainHashFromL1(uint256 count,bytes32 chainHash)']);
 const calldata = iface.encodeFunctionData('updateChainHashFromL1', [constants.One, constants.HashZero]);
 
 const opL1Messenger = new sdk.CrossChainMessenger({
-    l1SignerOrProvider: l1Signer,
+    l1SignerOrProvider: l1NonceManager,
     l2SignerOrProvider: dstSigner,
     l1ChainId: L1_CHAIN_ID,
     l2ChainId: L1_CHAIN_ID == 1 ? 10 : 420
@@ -73,6 +78,8 @@ let claimedCountStatus; //count => {txHash, timestamp}
 let processedBlockSrc;
 
 let balances = {};
+
+let totalClaim = 0;
 
 async function traceDeposit(fromBlock, sync) {
     let toBlock;
@@ -101,7 +108,7 @@ async function traceDeposit(fromBlock, sync) {
             await takeOrder(transferData[i], sync);
         }
     } catch (e) {
-        err("claim", e.reason ? e.reason : e);
+        err("claim", e.code ? "**" + e.code + "**" : e);
     }
     processedBlockSrc = toBlock;
     setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
@@ -131,7 +138,6 @@ async function takeOrder(transferData, sync) {
         logClaimKey(`current LP fee in USD = ${utils.formatUnits(lpFeeInUsd)}`);
         if (lpFeeInUsd.lt(minFee)) {
             const timeout = await timeoutForMinFee(transferData);
-            logClaimKey("timeout", timeout);
             if (timeout > 0) {
                 logClaimKey(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
@@ -149,7 +155,7 @@ async function takeOrder(transferData, sync) {
                 const txHash = await declare(count);
                 if (txHash) {
                     claimedCountStatus.set(count, { status: 'declared', tx: txHash, time: Date.now() });
-                    passingProof(count);
+                    passingHash(count);
                 }
             }
         }
@@ -196,18 +202,23 @@ async function take(transferData, key) {
         if (tx) {
             const receipt = await tx.wait();
             if (receipt.status == 1) {
+                totalClaim++;
                 if (receipt.effectiveGasPrice) {
                     const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
                     logClaim(`key=${key} claimed successfully with cost of ${utils.formatEther(cost)} ether`);
                 }
                 const count = receipt.events.filter(r => r.event === 'Claim')[0].args.count.toNumber();
-                logClaim(`key=${key} claimed successfully as count ${count}`);
+                logClaim(`key=${key} claimed successfully as count`, count);
                 return count;
             }
             err("claim", `key=${key} tx failed:`, tx.hash);
         }
     } catch (e) {
-        err("claim", e);
+        err("claim", `key=${key}`, e.code ? "**" + e.code + "**" : e);
+        if (e.code === 'NONCE_EXPIRED') {
+            logClaimKey("retry...");
+            return await take(transferData, key);
+        }
     }
     return 0;
 }
@@ -215,7 +226,7 @@ async function take(transferData, key) {
 async function timeoutForMinFee(transferData) {
     let timeSec = MIN_LP_FEE * transferData[6] / (transferData[4] / 1e18);
     const { number, timestamp } = await dstProvider.getBlock("latest");
-    logClaim("number", number, "timestamp", timestamp)
+    logClaim(`latest block: ${number} timestamp=${timestamp}`);
     timeSec = timeSec + parseInt(transferData[5]) - timestamp;
     return timeSec * 1000;
 }
@@ -224,14 +235,14 @@ async function declare(count) {
     logSync("declare for count", String(count));
     let tx;
     if (DIRECTION === "A2O") {
-        let gasPrice = await srcProvider.getGasPrice();
-        if (GAS_PRICE_OP > 0) {
-            let gasPriceCeil = utils.parseUnits(GAS_PRICE_OP, "gwei");
-            if (gasPrice.gt(gasPriceCeil)) {
-                gasPrice = gasPriceCeil;
-            }
-        }
         try {
+            let gasPrice = await srcProvider.getGasPrice();
+            if (GAS_PRICE_OP > 0) {
+                let gasPriceCeil = utils.parseUnits(GAS_PRICE_OP, "gwei");
+                if (gasPrice.gt(gasPriceCeil)) {
+                    gasPrice = gasPriceCeil;
+                }
+            }
             const maxGas = 1000000;
             tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas, { gasPrice });
         } catch (e) {
@@ -267,12 +278,12 @@ async function withdrawn(count) {
         const processed = await srcContract.processedCount();
         return processed.gte(count);
     } catch (e) {
-        err("sync", "query known hash on L1 failed. ", e.reason);
+        err("sync", "query known hash on L1 failed. ", e.code);
     }
     return false;
 }
 
-async function passingProof(count) {
+async function passingHash(count) {
     let item = claimedCountStatus.get(count);
     if (!item || !item.tx) {
         //possibly withdrawn with higher count; no need to pass
@@ -331,7 +342,7 @@ async function triggerL1MsgOptimism(count) {
                 break;
             }
         } catch (e) {
-            err("sync", `count=${count} getMessageStatus`, e.reason ? e.reason : e);
+            err("sync", `count=${count} getMessageStatus`, e.code ? "**" + e.code + "**" : e);
         }
         await new Promise(r => setTimeout(r, 5 * 1000));
     }
@@ -354,7 +365,7 @@ async function triggerL1MsgOptimism(count) {
             err("sync", `count=${count} finalizeMessage failed. tx: ${tx.hash}`);
         }
     } catch (e) {
-        err("sync", `count=${count} finalizeMessage failed`, e);
+        err("sync", `count=${count} finalizeMessage failed`, e.code ? "**" + e.code + "**" : e);
     }
     return false;
 }
@@ -368,7 +379,7 @@ async function triggerL1MsgArbitrum(count) {
         const receipt = await dstProvider.getTransactionReceipt(txHash);
         const l2Receipt = new L2TransactionReceipt(receipt);
         logSyncCount("getL2ToL1Messages")
-        const messages = await l2Receipt.getL2ToL1Messages(l1Signer, dstProvider);
+        const messages = await l2Receipt.getL2ToL1Messages(l1NonceManager, dstProvider);
         const l2ToL1Msg = messages[0]
         if ((await l2ToL1Msg.status(dstProvider)) == L2ToL1MessageStatus.EXECUTED) {
             logSyncCount(`already executed`);
@@ -398,7 +409,7 @@ async function triggerL1MsgArbitrum(count) {
             err("sync", `count=${count} l2ToL1Msg.execute failed, tx=${tx.hash}`);
         }
     } catch (e) {
-        err("sync", `count=${count} trigger msg from Arbitrum to L1 failed.`, e.reason ? e.reason : e);
+        err("sync", `count=${count} trigger msg from Arbitrum to L1 failed.`, e.code ? "**" + e.code + "**" : e);
     }
     err("sync", `count=${count} triggerL1MsgArbitrum failed`);
     return false;
@@ -475,7 +486,7 @@ async function doWithdraw(fromCount, toCount) {
             err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx?.hash}`);
         }
     } catch (e) {
-        err("withdraw", e);
+        err("withdraw", e.code ? "**" + e.code + "**" : e);
     }
     return false;
 }
@@ -549,7 +560,7 @@ async function updateHashToArbitrumFromL1(count) {
                 );
             }
         } catch (e) {
-            logSyncCount(`L2 setChainHashInL2 failed.`, e);
+            logSyncCount(`L2 setChainHashInL2 failed.`, e.code ? "**" + e.code + "**" : e);
             item.status = "l1ToL2RedeemFailed";
             return false;
         }
@@ -563,7 +574,7 @@ async function updateHashToArbitrumFromL1(count) {
                 logSyncCount(`setChainHashInL2 successfully on L1`);
             }
             const l1TxReceipt = new L1TransactionReceipt(setRec);
-            const message = (await l1TxReceipt.getL1ToL2Messages(srcSigner))[0];
+            const message = (await l1TxReceipt.getL1ToL2Messages(srcNonceManager))[0];
             logSyncCount("start waiting for status");
             let result;
             try {
@@ -581,7 +592,10 @@ async function updateHashToArbitrumFromL1(count) {
             }
             if (result.status === L1ToL2MessageStatus.FUNDS_DEPOSITED_ON_L2) {
                 logSyncCount("ready for redeem");
+                //set random timeout to avoid nonce confliction
+                await new Promise(r => setTimeout(r, (count % 10) * 60 * 1000));
                 try {
+                    logSyncCount("start to redeem");
                     let redeemTx;
                     if (MAX_FEE_PER_GAS_L1 > 0) {
                         const maxFeePerGas = utils.parseUnits(MAX_FEE_PER_GAS_L1, "gwei");
@@ -602,7 +616,7 @@ async function updateHashToArbitrumFromL1(count) {
                     }
                     err("sync", `count=${count} redeem failed: ${redeemTx.hash}`);
                 } catch (e) {
-                    err("sync", `count=${count}`, "redeem", e);
+                    err("sync", `count=${count}`, "redeem",  e);
                 }
             }
         } else {
@@ -625,7 +639,7 @@ async function checkSyncResult(count) {
             return true;
         }
     } catch (e) {
-        err("sync", `count=${count} check sync result failed: `, e.reason ? e.reason : e);
+        err("sync", `count=${count} check sync result failed: `, e.code ? "**" + e.code + "**" : e);
     }
     return false;
 }
@@ -639,7 +653,7 @@ async function knownHashOnionsL1(count) {
             return true;
         }
     } catch (e) {
-        err("sync", "query known hash on L1 failed. ", e.reason);
+        err("sync", "query known hash on L1 failed. ", e.code);
     }
     return false;
 }
@@ -681,7 +695,7 @@ async function syncCount(count) {
         return;
     }
     if (item && item.tx) {
-        await passingProof(count);
+        await passingHash(count);
         return;
     }
     const [gap, transferCount] = await Promise.all([dstContract.GAP(), dstContract.transferCount()]);
@@ -693,7 +707,7 @@ async function syncCount(count) {
     logSyncCount("sync hash from dst chain.");
     if (txHash) {
         claimedCountStatus.set(count, { tx: txHash, time: Date.now() });
-        await passingProof(count);
+        await passingHash(count);
     }
 }
 
@@ -714,7 +728,7 @@ async function checkCountStatus(count) {
         }
         // A2O only
         if (status.startsWith("l1ToL2")) {
-            return `L1 => src:  ${status}`;
+            return `L1 => src: ${status}`;
         }
         return status;
     }
@@ -758,7 +772,7 @@ async function retrieveRewardData(fromCount, toCount) {
             fromBlock = toBlock;
         }
     } catch (e) {
-        err("withdraw", "query Claim events failed:", e.reason ? e.reason : e);
+        err("withdraw", "query Claim events failed:", e.code ? "**" + e.code + "**" : e);
     }
     return result;
 }
@@ -789,6 +803,7 @@ async function exitHandler() {
         saveStatus(processedBlockSrc, claimedCountStatus);
     }
     if (!(process.argv.length > 2 && process.argv[2] === "status")) {
+        console.log("total claim", totalClaim);
         await diffBalances();
         console.log("press Enter to exit...")
     }
@@ -811,7 +826,7 @@ async function queryBalances() {
             bals[t.name] = result.slice(3);
         }
     } catch (e) {
-        console.log("query balances error", e)
+        console.log("query balances error", e);
     }
     return bals;
 }
@@ -839,7 +854,7 @@ async function diffBalances() {
         return;
     }
     const [l1e, srce, dste] = newBals.ETH;
-    console.log(`Ethereum ETH: ${prt(l10e, l1e)} `);
+    console.log(`\nEthereum ETH: ${prt(l10e, l1e)} `);
     console.log(`${DIRECTION === 'O2A' ? 'Optimism' : 'Arbitrum'} ETH: ${prt(src0e, srce)}`);
     console.log(`${DIRECTION === 'O2A' ? 'Arbitrum' : 'Optimism'} ETH: ${prt(dst0e, dste)}`);
     for (let t of tokens) {

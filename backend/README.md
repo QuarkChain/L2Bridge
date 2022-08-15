@@ -19,6 +19,15 @@ cd lpscripts
 yarn
 ```
 ## How Does It Work
+The L2Bridge enables users to transfer ERC20 tokens across Ethereum L2 networks without interacting with L1. LPs on the other side, transfer funds to the user on the target L2, and withdraw their funds later from the source L2 contract later after the transfer data hash is passed from target L2 to source L2, which proves their claims.  
+The more detailed procedure is like the following:  
+Step 1: user deposits funds on source L2, most likely through the frontend.  
+Step 2: LP detects user deposit, and calls the L2Bridge contract to claim the order on destination L2, which updates the hash head of all transfer data so far.  
+Step 3: Anyone can call the L2Bridge contract to declare the new hash head, to inform the L1 contract of the new state update.  
+Step 4: After the challenge period, an L1 transaction needs to be called to trigger the L1 contract to update its state.  
+Step 5: In the case of the hash head passing from L1 to Arbitrum, a setChainHashInL2 function should be called separately on L1. For Optimism, it will be done automatically.  
+Step 6: When the hash head is available on source L2, LPs can withdraw their funds back on source L2 by providing reward data as hash proofs.
+
 ### Supported L2 Networks
 The project currently supports 2 L2 networks in both directions, which are Arbitrum and Optimism. 
 The direction can be understood as the fund flow direction from the user's point of view. For example, `O2A` means the source chain is Optimism and destination chain is Arbitrum, and `A2O` means the opposite direction.

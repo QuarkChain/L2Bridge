@@ -72,14 +72,16 @@ async function tokenPrice(tokenAddress) {
         const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
         const resp = await fetch(url);
         const data = await resp.json();
-        const price = data[tokenAddress].usd.toFixed(2);
-        cachePrices[tokenAddress] = price;
-        logClaim(`price of ${tokenAddress}`, price);
-        return price;
+        if (data[tokenAddress]) {
+            const price = data[tokenAddress].usd.toFixed(2);
+            cachePrices[tokenAddress] = price;
+            logClaim(`price of ${tokenAddress}`, price);
+            return price;
+        }
     } catch (e) {
         logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
-        return cachePrices[tokenAddress] || 1;
     }
+    return cachePrices[tokenAddress] || 1;
 }
 
 async function fastGasPrice() {
@@ -92,9 +94,36 @@ async function fastGasPrice() {
         logSync(`fastGasPrice`, fastGasPrice);
         return price;
     } catch (e) {
-        logSync(`get gas price failed`,  e.code ? e.code : e);
+        logSync(`get gas price failed`, e.code ? e.code : e);
         return cacheGasPrice;
     }
 }
 
-module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice };
+class NonceManager {
+    constructor(startNonce) {
+        this.nonceOffset = 0;
+        // this.provider = signer.provider;
+        // this.address = signer.address;
+        this.baseNonce = startNonce;
+    }
+
+    // async baseNonce() {
+    //     return await this.provider.getTransactionCount(this.address);
+    // }
+
+    getNonce() {
+        // const nonce = this.baseNonce.then((nonce) => {
+        //     console.log("baseNonce called")
+        //     return (nonce + (this.nonceOffset++));
+        // });
+        console.log('nonceOffset', this.nonceOffset)
+        const nonce = this.baseNonce + (this.nonceOffset++);
+        return nonce;
+        // const bn =   this.baseNonce();
+        // const nonce = bn + this.nonceOffset++;
+        // console.log("baseNonce", bn, "offset", this.nonceOffset, "nonce", nonce)
+        // return nonce;
+    }
+}
+
+module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, NonceManager };
