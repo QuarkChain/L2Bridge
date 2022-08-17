@@ -73,7 +73,7 @@ RPC_OP="https://mainnet.optimism.io/"
 # the threshold of LP fee to take orders in USD
 MIN_LP_FEE=10
 # query interval of user deposit event in seconds
-CLAIM_INTERVAL_SECONDS=30
+CLAIM_INTERVAL=30
 # L1 chain ID
 L1_CHAIN_ID=1
 # direction
@@ -119,8 +119,14 @@ You can also choose to synchronize and withdraw a specified order according to t
 # Execute a one-time task to sync the proof of order 6 and withdraw all claimed funds before it (include 6).
 yarn sync 6
 ```
-### Tips
-- To control gas costs, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   **Warning:** this may lead to the risk of order expiration.
-- To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
+## FAQ
+### What happens if the order is expired?
+If the users' deposit is expired, they can refund their token from the source L2 contract. The risk is if the order has been taken on destination L2 but the claim hash has not relayed to source L2, the LP will lose his money. 
+### How do I control gas costs?
+To control gas costs, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
+Note that if maxFeePerGas is lower than maxPriorityFeePerGas the transaction will fail, so it will be ignored by the script.  
+**Warning:** If the claim hashes are not relayed to source L2 in time, there are risks that orders would be expired. 
+### How can I get a better chance to win the claim bid?
+To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
     - For Arbitrum as the destination chain, use MAX_PRIORITY_FEE_AB_CLAIM to specify the max priority fee (tip) in Gwei
     - For Optimism as the destination chain, use GAS_PRICE_MULTIPLIER_OP_CLAIM which will multiply the real-time gas price.

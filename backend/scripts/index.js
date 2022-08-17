@@ -9,9 +9,9 @@ require("dotenv").config();
 const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
 
 const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1,
-    MAX_PRIORITY_FEE_AB_CLAIM, GAS_PRICE_MULTIPLIER_OP_CLAIM, MAX_FEE_PER_GAS_AB, GAS_PRICE_OP, CLAIM_INTERVAL_SECONDS } = process.env;
+    MAX_PRIORITY_FEE_AB_CLAIM, GAS_PRICE_MULTIPLIER_OP_CLAIM, MAX_FEE_PER_GAS_AB, GAS_PRICE_OP, CLAIM_INTERVAL, CLAIM_TIME_BUFFER } = process.env;
 const deployment = require(DEPLOYMENTS);
-const claimInterval = CLAIM_INTERVAL_SECONDS * 1000;
+const claimInterval = CLAIM_INTERVAL * 1000;
 if (DIRECTION !== "O2A" && DIRECTION !== "A2O") {
     throw "Supported DIRETION: 'O2A' or 'A2O'";
 }
@@ -92,7 +92,7 @@ async function traceDeposit(fromBlock, sync) {
         for (let i = 0; i < transferData.length; i++) {
             const { name, decimal } = findTokenByL2Address(transferData[i][1]);
             logClaim(`found transferData with amount of ${utils.formatUnits(transferData[i][3], decimal)} ${name}`);
-            if (Date.now() + L2ToL1Delay > transferData[i][7] * 1000) {
+            if (Date.now() + L2ToL1Delay + CLAIM_TIME_BUFFER * 1000 > transferData[i][7] * 1000) {
                 logClaim("rejected: the deposit could be expired before challenge period end");
                 continue;
             }
@@ -133,22 +133,27 @@ async function takeOrder(transferData, sync) {
             throw `INSUFFICIENT BALANCE of token ${name}`;
         }
         if (BigNumber.from(transferData[4]).isZero()) {
-            logClaimKey("no lp fee");
+            logClaimKey("no LP fee");
+            return;
+        }
+        const tkPrice = await tokenPrice(tokenAddrL1);
+        const maxLpFeeUnitsInUsd = BigNumber.from(transferData[4]).mul((Number(tkPrice) * 100).toFixed(0)).div(100);
+        if (maxLpFeeUnitsInUsd.lt(MIN_LP_FEE * (10 ** decimal))) {
+            logClaimKey("LP fee too low");
             return;
         }
         const lpFeeUnits = await dstContract.getLPFee(transferData);
-        const tkPrice = await tokenPrice(tokenAddrL1);
         const lpFeeUnitsInUsd = lpFeeUnits.mul((Number(tkPrice) * 100).toFixed(0)).div(100);
         logClaimKey(`min LP fee: ${MIN_LP_FEE}; current LP fee: ${utils.formatUnits(lpFeeUnits, decimal)} ${name} or ${utils.formatUnits(lpFeeUnitsInUsd, decimal)} USD`);
         if (lpFeeUnitsInUsd.lt(MIN_LP_FEE * (10 ** decimal))) {
-            const timeout = await timeoutForMinFee(transferData);
+            const timeout = await timeoutForMinFee(transferData, key);
             if (timeout > 0) {
                 logClaimKey(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
                     takeOrder(transferData, sync);
                 }, timeout);
-                return;
             }
+            return;
         }
         const data = transferData.map(t => String(t));
         logClaimKey(`start claiming `, data);
@@ -221,12 +226,16 @@ async function take(transferData, key) {
     return 0;
 }
 
-async function timeoutForMinFee(transferData) {
+async function timeoutForMinFee(transferData, key) {
     let timeSec = MIN_LP_FEE * transferData[6] / (transferData[4] / 1e18);
-    const { number, timestamp } = await dstProvider.getBlock("latest");
-    logClaim(`latest block: ${number} timestamp=${timestamp}`);
-    timeSec = timeSec + parseInt(transferData[5]) - timestamp;
-    return timeSec * 1000;
+    try {
+        const { number, timestamp } = await dstProvider.getBlock("latest");
+        logClaim(`key=${key} latest block: ${number} timestamp=${timestamp}`);
+        timeSec = timeSec + parseInt(transferData[5]) - timestamp;
+        return timeSec * 1000;
+    } catch (e) {
+        logClaim(`key=${key} waiting for fee rampup failed: ${e.reason}`);
+    }
 }
 
 function findTokenByL2Address(l2Addr) {
@@ -294,8 +303,9 @@ async function withdrawn(count) {
 async function passingHash(count) {
     let item = claimedCountStatus.get(count);
     if (!item || !item.tx) {
-        //possibly withdrawn with higher count; no need to pass
-        err("sync", "unknown pending msg for count", count);
+        logSync(`count=${count} cannot find pending order`);
+        const status = await checkCountStatus(count);
+        logSync(`count=${count}`, status);
         return;
     }
     if (DIRECTION === "O2A") {
@@ -331,6 +341,12 @@ async function triggerL1MsgOptimism(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     logSyncCount("try to trigger Optimism to L1 tx");
     let item = claimedCountStatus.get(count);
+    if (!item) {
+        logSyncCount(`cannot find pending order`);
+        const status = await checkCountStatus(count);
+        logSyncCount(status);
+        return false;
+    }
     const txHash = item.tx;
     const delay = item.time + L2ToL1Delay - Date.now();
     if (delay > 0) {
@@ -367,7 +383,7 @@ async function triggerL1MsgOptimism(count) {
             if (receipt.status == 1) {
                 const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
                 logSyncCount(`relay message successfully with cost of ${utils.formatEther(cost)} ether`);
-                item.status = "triggered";
+                claimedCountStatus.get(count).status = "triggered";
                 save();
                 return true;
             }
@@ -383,6 +399,12 @@ async function triggerL1MsgArbitrum(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     try {
         const item = claimedCountStatus.get(count);
+        if (!item) {
+            logSyncCount(`cannot find pending order`);
+            const status = await checkCountStatus(count);
+            logSyncCount(status);
+            return false;
+        }
         const txHash = item.tx;
         logSyncCount("get transaction receipt from Arbitrum to L1")
         const receipt = await dstProvider.getTransactionReceipt(txHash);
@@ -412,7 +434,7 @@ async function triggerL1MsgArbitrum(count) {
             if (receipt.status == 1) {
                 const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
                 logSyncCount(`l2ToL1Msg.execute succesfully with cost of ${utils.formatEther(cost)} ether`);
-                item.status = "triggered";
+                claimedCountStatus.get(count).status = "triggered";
                 save();
                 return true;
             }
@@ -430,6 +452,13 @@ async function waitSyncedToL2(count) {
     await new Promise(r => setTimeout(r, L1ToL2Delay + 10 * 1000));
     while (true) {
         if (await checkSyncResult(count)) {
+            break;
+        }
+        if (!claimedCountStatus.get(count)) {
+            //withdrawn with other count
+            logSync(`count=${count} cannot find pending order`);
+            const status = await checkCountStatus(count);
+            logSync(`count=${count}`, status);
             break;
         }
         await new Promise(r => setTimeout(r, 5 * 1000));
@@ -494,7 +523,7 @@ async function doWithdraw(fromCount, toCount) {
                 }
                 return true;
             }
-            err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx?.hash}`);
+            err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx.hash}`);
         }
     } catch (e) {
         if (e.body) {
@@ -507,7 +536,8 @@ async function doWithdraw(fromCount, toCount) {
             else {
                 err("withdraw", e)
             }
-    }
+    } 
+    err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔`);
     return false;
 }
 
@@ -517,7 +547,9 @@ async function updateHashToArbitrumFromL1(count) {
     logSyncCount(`update hash to Arbitrum from L1`);
     let item = claimedCountStatus.get(count);
     if (!item) {
-        logSyncCount(`cannot find pending order, must be withdrawn`);
+        logSyncCount(`cannot find pending order`);
+        const status = await checkCountStatus(count);
+        logSyncCount(status);
         return false;
     }
     const newBytes = utils.defaultAbiCoder.encode(
@@ -586,13 +618,14 @@ async function updateHashToArbitrumFromL1(count) {
                 );
             }
         } catch (e) {
-            logSyncCount(`L2 setChainHashInL2 failed.`, e.code ? "**" + e.code + "**" : e);
-            item.status = "l1ToL2SetChainHashInL2Failed";
+            logSyncCount(`setChainHashInL2 failed.`, e.code ? "**" + e.code + "**" : e);
+            claimedCountStatus.get(count).status = "l1ToL2SetChainHashInL2Failed";
             save();
             return false;
         }
         const setRec = await setTx.wait();
         if (setRec.status == 1) {
+            item = claimedCountStatus.get(count);
             item.status = "l1ToL2Called";
             item.setTx = setTx.hash;
             save();
@@ -617,7 +650,7 @@ async function updateHashToArbitrumFromL1(count) {
                 logSyncCount("status", result.status);
                 if (result.status === L1ToL2MessageStatus.REDEEMED) {
                     logSyncCount(`L2 retryable txn executed`);
-                    item.status = "l1ToL2Redeemed";
+                    claimedCountStatus.get(count).status = "l1ToL2Redeemed";
                     save();
                     return true;
                 }
@@ -629,7 +662,7 @@ async function updateHashToArbitrumFromL1(count) {
     } catch (e) {
         err("sync", `count=${count}`, "updateHashToArbitrumFromL1", e);
     }
-    item.status = "l1ToL2RedeemFailed";
+    claimedCountStatus.get(count).status = "l1ToL2RedeemFailed";
     save();
     return false;
 }
@@ -638,6 +671,12 @@ async function redeemRetryableTicket(count, message) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     logSyncCount("try to redeemRetryableTicket");
     let item = claimedCountStatus.get(count);
+    if (!item) {
+        logSyncCount(`cannot find pending order`);
+        const status = await checkCountStatus(count);
+        logSyncCount(status);
+        return false;
+    }
     if (!message) {
         if (!item.setTx) {
             err('sync', `count=${count} cannot find setTx`);
@@ -650,7 +689,7 @@ async function redeemRetryableTicket(count, message) {
     const status = await message.status();
     if (status === L1ToL2MessageStatus.REDEEMED) {
         logSyncCount(`L2 retryable txn executed ${message.l2TxHash}`);
-        item.status = "l1ToL2Redeemed";
+        claimedCountStatus.get(count).status = "l1ToL2Redeemed";
         save();
         return true;
     }
@@ -674,7 +713,7 @@ async function redeemRetryableTicket(count, message) {
                 } else {
                     logSyncCount(`redeem successfully on L1`);
                 }
-                item.status = "l1ToL2Redeemed";
+                claimedCountStatus.get(count).status = "l1ToL2Redeemed";
                 save();
                 return true;
             }
@@ -692,8 +731,6 @@ async function checkSyncResult(count) {
         const onion = await srcContract.knownHashOnions(count);
         if (onion != constants.HashZero) {
             logSync(`count=${count} hash found on src`);
-            claimedCountStatus.delete(count);
-            save();
             return true;
         }
     } catch (e) {
@@ -758,6 +795,23 @@ async function syncCount(count) {
         }
         return;
     }
+    if (item && item.status === "triggered") {
+        while (true) {
+            if (await knownHashOnionsL1(count)) {
+                break;
+            }
+            await new Promise(r => setTimeout(r, 5 * 1000));
+        }
+        if (DIRECTION === "A2O") {
+            if (!await updateHashToArbitrumFromL1(count)) {
+                err("sync", `count=${count} updateHashToArbitrumFromL1 failed.`);
+                return;
+            }
+        }
+        if (await waitSyncedToL2(count)) {
+            await processWithdraw(count);
+        }
+    }
     if (item && item.tx) {
         await passingHash(count);
         return;
@@ -776,8 +830,9 @@ async function syncCount(count) {
 }
 
 async function checkCountStatus(count) {
-    const { status, time } = claimedCountStatus.get(count);
-    if (status) {
+    const item = claimedCountStatus.get(count);
+    if (item) {
+        const { status } = item;
         if (status === "claimed") {
             return `dst: claimed`;
         }
@@ -785,14 +840,13 @@ async function checkCountStatus(count) {
             return `dst => L1: ${status}`;
         }
         if (status === "declared") {
-            let msg = `dst => L1: declared; `;
-            const delay = time + L2ToL1Delay - Date.now();
-            if (delay > 0) {
-                msg += `waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
-            } else {
-                msg = `dst => L1: challege period end, waiting for status change`;
+            if (item.time) {
+                const delay = item.time + L2ToL1Delay - Date.now();
+                if (delay > 0) {
+                    return `dst => L1: in challenge period, waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
+                }
             }
-            return msg;
+            return `dst => L1: challenge period end, waiting for status change`;
         }
         // A2O only
         if (status.startsWith("l1ToL2")) {
