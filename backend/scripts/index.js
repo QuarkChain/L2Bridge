@@ -497,7 +497,16 @@ async function doWithdraw(fromCount, toCount) {
             err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx?.hash}`);
         }
     } catch (e) {
-        err("withdraw", e.code ? `**${e.code}:${e.reason}**:${JSON.parse(e.body).message}` : e);
+        if (e.body) {
+            const { error } = JSON.parse(e.body)
+            err("withdraw", error.message)
+        } else
+            if (e.reason) {
+                err("withdraw", e.reason)
+            }
+            else {
+                err("withdraw", e)
+            }
     }
     return false;
 }
@@ -507,6 +516,10 @@ async function updateHashToArbitrumFromL1(count) {
     const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
     logSyncCount(`update hash to Arbitrum from L1`);
     let item = claimedCountStatus.get(count);
+    if (!item) {
+        logSyncCount(`cannot find pending order, must be withdrawn`);
+        return false;
+    }
     const newBytes = utils.defaultAbiCoder.encode(
         ['uint256'],
         [count]
@@ -592,7 +605,7 @@ async function updateHashToArbitrumFromL1(count) {
             const l1TxReceipt = new L1TransactionReceipt(setRec);
             const message = (await l1TxReceipt.getL1ToL2Messages(srcNonceManager))[0];
             logSyncCount("start waiting for status");
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 3; i++) {
                 let result;
                 try {
                     result = await message.waitForStatus();
@@ -622,8 +635,14 @@ async function updateHashToArbitrumFromL1(count) {
 }
 
 async function redeemRetryableTicket(count, message) {
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
+    logSyncCount("try to redeemRetryableTicket");
     let item = claimedCountStatus.get(count);
     if (!message) {
+        if (!item.setTx) {
+            err('sync', `count=${count} cannot find setTx`);
+            return false;
+        }
         const setRec = await l1Provider.getTransactionReceipt(item.setTx);
         const l1TxReceipt = new L1TransactionReceipt(setRec);
         message = (await l1TxReceipt.getL1ToL2Messages(srcNonceManager))[0];
@@ -771,7 +790,7 @@ async function checkCountStatus(count) {
             if (delay > 0) {
                 msg += `waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
             } else {
-                msg = `dst => L1: challege period end, possibly waiting for status change`;
+                msg = `dst => L1: challege period end, waiting for status change`;
             }
             return msg;
         }
@@ -794,7 +813,7 @@ async function checkCountStatus(count) {
 }
 
 async function retrieveRewardData(fromCount, toCount) {
-    logWithdraw(`start searching onchain for rewardData from ${fromCount} to ${toCount}`);
+    logWithdraw(`start searching on chain for rewardData from ${fromCount} to ${toCount}`);
     const total = toCount - fromCount + 1;
     let result = [];
     let fromBlock = genesisBlockDst;
@@ -824,6 +843,14 @@ async function retrieveRewardData(fromCount, toCount) {
         err("withdraw", "query Claim events failed:", e.code ? "**" + e.code + "**" : e);
     }
     return result;
+}
+
+async function syncPendings() {
+    logMain("sync pending orders if any...")
+    for (let c of claimedCountStatus.keys()) {
+        syncCount(c);
+        await new Promise(r => setTimeout(r, 60 * 1000));
+    }
 }
 
 async function approve() {
@@ -953,7 +980,7 @@ async function main() {
         process.exit(1);
     });
     ({ processedBlockSrc, claimedCountStatus } = loadStatus());
-    if (!(process.argv.length > 2 && process.argv[2] === "status")) {
+    if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "-sync")) {
         await approve();
     }
     let syncFlag = false;
@@ -978,7 +1005,7 @@ async function main() {
             }
             await syncCount(count);
             logMain("Done sync.");
-            return;
+            process.exit();
         }
         if (args[0] === "status") {
             logMain("Start checking status of your pending claims...");
@@ -988,10 +1015,11 @@ async function main() {
             }
             await Promise.all(status.values());
             console.log("========================================================")
-            console.log(`count\tamount\tstatus`);
+            console.log(`count\tamount\ttoken\tstatus`);
             console.log("----------------------------")
             for (let k of status.keys()) {
-                console.log(k, `\t${claimedCountStatus.get(k).amount}\t${await status.get(k)}`);
+                const { token, amount } = claimedCountStatus.get(k);
+                console.log(k, `\t${amount}\t${token}\t${await status.get(k)}`);
             }
             console.log("========================================================")
             await printBalances();
@@ -1000,6 +1028,7 @@ async function main() {
         }
         if (args[0] === "-sync") {
             syncFlag = true;
+            syncPendings();
         }
     }
     startBlock = processedBlockSrc ? processedBlockSrc : genesisBlockSrc;

@@ -2,12 +2,11 @@
 
 ## Introduction
 LP script for L2bridge is a handy tool for liquidity providers to run a background service or execute a one-time task to automatically fulfill the following requirements:
--  Claim user deposits
--  Synchronize/relay the proofs from destination L2 chain to source L2 chain
--  Withdraw funds on source L2 chain
+-  Observe source L2 for user deposits and take orders (a.k.a. claim) on destination L2
+-  Synchronize/relay hash heads from destination L2 chain to source L2 chain
+-  Withdraw funds from source L2 contract
 -  Cost control through gas price configurations
--  Show status of claims of current LP account
--  Show account balances differences of current LP account on exit
+-  Show status of pending claims and ETH and token balances of current LP account
 
 ## Installation
 ```sh
@@ -28,13 +27,8 @@ Step 4: After the challenge period, an L1 transaction needs to be called to trig
 Step 5: In the case of the hash head passing from L1 to Arbitrum, a setChainHashInL2 function should be called separately on L1. For Optimism, it will be done automatically.  
 Step 6: When the hash head is available on source L2, LPs can withdraw their funds back on source L2 by providing reward data as hash proofs.
 
-### Supported L2 Networks
-The project currently supports 2 L2 networks in both directions, which are Arbitrum and Optimism. 
-The direction can be understood as the fund flow direction from the user's point of view. For example, `O2A` means the source chain is Optimism and destination chain is Arbitrum, and `A2O` means the opposite direction.
-
 ### About deployments.json
-You will need to configure where to read the contract information to run the script in a .env file.   
-To do this, please find [deployments.json](https://github.com/QuarkChain/L2Bridge/blob/main/contract/deployments.json) file with contract addresses and some other information in it. It is structured in the following way:
+You will need a contract configuration file named [deployments.json](https://github.com/QuarkChain/L2Bridge/blob/main/contract/deployments.json) to run the script. It is structured in the following way:
 ```  
 root
     |-1(L1 chain Id)
@@ -56,9 +50,13 @@ root
     ...
 ```
 
+### Supported L2 Networks
+The project currently supports 2 L2 networks in both directions, which are Arbitrum and Optimism. 
+The direction can be understood as the fund flow direction from the user's point of view. For example, `O2A` means the source chain is Optimism and destination chain is Arbitrum, and `A2O` means the opposite direction.
+
 ### Supported Tokens
 In the part of the `L1 chain id` / `tokens` in `deployments.json` file, you can add/remove tokens that are supported by the script.
-### Configuration
+### Configurations
 You will need to create a .env file with the following configurations:
 ```sh
 # the private key of the LP account (without 0x)
@@ -95,12 +93,7 @@ MAX_PRIORITY_FEE_AB_CLAIM=-1
 # an integer stands for a multiplier of gas price to bid for a claim on Optimism. e.g. 120 means 1.2x of default gas price
 GAS_PRICE_MULTIPLIER_OP_CLAIM=100
 ```
-### Tips
-- To control gas costs, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   **Warning:** this may lead to the risk of order expiration.
-- To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
-    - For Arbitrum as the destination chain, use MAX_PRIORITY_FEE_AB_CLAIM to specify the max priority fee (tip) in Gwei
-    - For Optimism as the destination chain, use GAS_PRICE_MULTIPLIER_OP_CLAIM which will multiply the real-time gas price.
-### Usage
+### Usages
 Usually, you can run the service in the default mode, which will do almost everything for an LP.
 ```sh
 # Start a service to watch user deposits on the source chain, and claim, sync proofs, as well as withdraw funds on the destination chain as soon as sync finishes.
@@ -126,3 +119,8 @@ You can also choose to synchronize and withdraw a specified order according to t
 # Execute a one-time task to sync the proof of order 6 and withdraw all claimed funds before it (include 6).
 yarn sync 6
 ```
+### Tips
+- To control gas costs, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   **Warning:** this may lead to the risk of order expiration.
+- To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
+    - For Arbitrum as the destination chain, use MAX_PRIORITY_FEE_AB_CLAIM to specify the max priority fee (tip) in Gwei
+    - For Optimism as the destination chain, use GAS_PRICE_MULTIPLIER_OP_CLAIM which will multiply the real-time gas price.
