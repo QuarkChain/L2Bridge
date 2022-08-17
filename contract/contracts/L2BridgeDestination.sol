@@ -20,7 +20,8 @@ contract L2BridgeDestination {
         bytes32 indexed transferDataHash,
         address indexed claimer,
         address indexed srcTokenAddress,
-        uint256 amount
+        uint256 amount,
+        uint256 count
     );
 
     constructor(uint256 _gap) {
@@ -64,14 +65,6 @@ contract L2BridgeDestination {
             transferData.destination,
             amount
         );
-
-        emit Claim(
-            key,
-            msg.sender,
-            transferData.srcTokenAddress,
-            transferData.amount
-        );
-
         // construct reward data and append it to onion
         L2BridgeLib.RewardData memory rewardData = L2BridgeLib.RewardData({
             transferDataHash: key,
@@ -84,6 +77,14 @@ contract L2BridgeDestination {
             abi.encode(rewardHashOnion, rewardDataHash)
         );
         transferCount++;
+
+        emit Claim(
+            key,
+            msg.sender,
+            transferData.srcTokenAddress,
+            transferData.amount,
+            transferCount
+        );
 
         // save to history per GAP transfers
         if (transferCount % GAP == 0) {

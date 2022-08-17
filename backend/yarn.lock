@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@arbitrum/sdk@^v3.0":
-  version "3.0.0-beta.6"
-  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.6.tgz#a36c3e39a7358396b5533f3288125107da6ae59e"
-  integrity sha512-kPCfgj72MeyVcIXQKoztLO29UTcpSbXFzc/S0oDgVNNcHcXp1hWUJqqkVRg0O43P2yKjZRT/I94K0Nj2nZNiiQ==
+"@arbitrum/sdk@3.0.0-beta.5":
+  version "3.0.0-beta.5"
+  resolved "https://registry.npmjs.org/@arbitrum/sdk/-/sdk-3.0.0-beta.5.tgz#ef1c81de58db9e76defb4a1971274316a375133b"
+  integrity sha512-qeNdK7es4uKRFciz4zznPEnGRZaAHkrwNqUN1F4U6d4i8olhK0KMdSodx2ZjajBvVVwOo5kFsw5ocAaTvkf28g==
   dependencies:
     "@ethersproject/address" "^5.0.8"
     "@ethersproject/bignumber" "^5.1.1"
@@ -25,19 +25,19 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@eth-optimism/contracts@0.5.30":
-  version "0.5.30"
-  resolved "https://registry.npmjs.org/@eth-optimism/contracts/-/contracts-0.5.30.tgz#855c3c0a47e7bab54c91459592312699947b71a0"
-  integrity sha512-mmB/PeK7ADcQVqLzT7NaDG9tpuPnv7WAF9fcqM8GLIGuVCcyPSWR3TE/MN0fAnQ2Vyffd84+YDjyBLmL1gKepA==
+"@eth-optimism/contracts@0.5.31":
+  version "0.5.31"
+  resolved "https://registry.npmjs.org/@eth-optimism/contracts/-/contracts-0.5.31.tgz#2f5a9be37b4c309909d8206c877710e9769af858"
+  integrity sha512-I07EeyBBWwSsB6I/GodOLRydDtefWx4sdL3wCvNLSoCIUl2hUyisMmtTojOBXeT6vvfbiYkWc8jZlfXdbyJ7fA==
   dependencies:
-    "@eth-optimism/core-utils" "0.9.1"
+    "@eth-optimism/core-utils" "0.9.2"
     "@ethersproject/abstract-provider" "^5.6.1"
     "@ethersproject/abstract-signer" "^5.6.2"
 
-"@eth-optimism/core-utils@0.9.1":
-  version "0.9.1"
-  resolved "https://registry.npmjs.org/@eth-optimism/core-utils/-/core-utils-0.9.1.tgz#6d011e0c272b5373828c239120b6e9fb0cf961c5"
-  integrity sha512-RhSoRCVGAPh2U9z9dEH6OBmva5vhdc49qncTFW+MV4dVQ963/vf4lYZEAnu2SOdy5F7EV4z0KkNMj0OlpEHxtw==
+"@eth-optimism/core-utils@0.9.2":
+  version "0.9.2"
+  resolved "https://registry.npmjs.org/@eth-optimism/core-utils/-/core-utils-0.9.2.tgz#f31241de997ec5dc8a4095d044d12f0558bb9f32"
+  integrity sha512-wUP75gZu1rZ+taXwUtcw00qCUbDkcn16JcIIK/j7XnzgaEnyXExn+ivz3rivFbr5Ool4c5M+iVzVF99sPZrCPA==
   dependencies:
     "@ethersproject/abstract-provider" "^5.6.1"
     "@ethersproject/providers" "^5.6.8"
@@ -46,13 +46,13 @@
     chai "^4.3.4"
     ethers "^5.6.8"
 
-"@eth-optimism/sdk@^1.3.0":
-  version "1.3.0"
-  resolved "https://registry.npmjs.org/@eth-optimism/sdk/-/sdk-1.3.0.tgz#15bb12fae78fa582d7b16913d10b198070ad029f"
-  integrity sha512-th8yj0ukqJOFereY63aF2foCSWtTuaKhkoE9QdRBClH75rp0m65ksoDdOkpWgo8jQOj5jYXHRUjrJEzexdyHaw==
+"@eth-optimism/sdk@1.3.1":
+  version "1.3.1"
+  resolved "https://registry.npmjs.org/@eth-optimism/sdk/-/sdk-1.3.1.tgz#4b970074cbdcda5dcfaf0ed8cd71e0957d7d170e"
+  integrity sha512-MGz6hAIR5EAElJyyX6d5b6GOIy66n5Ex1tTI845+oTFx/ExXOt6XQ6RRHsDOFgHWv1vMtsYgxolx+5fhSfE+cg==
   dependencies:
-    "@eth-optimism/contracts" "0.5.30"
-    "@eth-optimism/core-utils" "0.9.1"
+    "@eth-optimism/contracts" "0.5.31"
+    "@eth-optimism/core-utils" "0.9.2"
     lodash "^4.17.21"
     merkletreejs "^0.2.27"
     rlp "^2.2.7"
@@ -160,6 +160,15 @@
     "@ethersproject/logger" "^5.6.0"
     "@ethersproject/properties" "^5.6.0"
     "@ethersproject/transactions" "^5.6.2"
+
+"@ethersproject/experimental@^5.6.3":
+  version "5.6.3"
+  resolved "https://registry.npmjs.org/@ethersproject/experimental/-/experimental-5.6.3.tgz#d1cd8f3b886cbab86430fb2954eb65ddb7c75ffd"
+  integrity sha512-yMymv32XMr9sXvHc3S1On2wD0JMT6n4X9uKpfZ8jFFw5rEcI99yfovcCZ0tpUedh1b3IvReSain+RobeNQmmEg==
+  dependencies:
+    "@ethersproject/web" "^5.6.1"
+    ethers "^5.6.8"
+    scrypt-js "3.0.1"
 
 "@ethersproject/hash@5.6.1", "@ethersproject/hash@^5.6.1":
   version "5.6.1"
@@ -1101,6 +1110,13 @@ node-addon-api@^2.0.0:
   resolved "https://registry.npmjs.org/node-addon-api/-/node-addon-api-2.0.2.tgz#432cfa82962ce494b132e9d72a15b29f71ff5d32"
   integrity sha512-Ntyt4AIXyaLIuMHF6IOoTakB3K+RWxwtsHNRxllEoA6vPwP9o4866g6YWDLUdnucilZhmkxiHwHr11gAENw+QA==
 
+node-fetch@2:
+  version "2.6.7"
+  resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-2.6.7.tgz#24de9fba827e3b4ae44dc8b20256a379160052ad"
+  integrity sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==
+  dependencies:
+    whatwg-url "^5.0.0"
+
 node-gyp-build@^4.2.0:
   version "4.5.0"
   resolved "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.5.0.tgz#7a64eefa0b21112f89f58379da128ac177f20e40"
@@ -1258,6 +1274,11 @@ table-layout@^1.0.2:
     typical "^5.2.0"
     wordwrapjs "^4.0.0"
 
+tr46@~0.0.3:
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz#8184fd347dac9cdc185992f3a6622e14b9d9ab6a"
+  integrity sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==
+
 treeify@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/treeify/-/treeify-1.1.0.tgz#4e31c6a463accd0943879f30667c4fdaff411bb8"
@@ -1360,6 +1381,19 @@ web3-utils@^1.3.4:
     number-to-bn "1.7.0"
     randombytes "^2.1.0"
     utf8 "3.0.0"
+
+webidl-conversions@^3.0.0:
+  version "3.0.1"
+  resolved "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz#24534275e2a7bc6be7bc86611cc16ae0a5654871"
+  integrity sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==
+
+whatwg-url@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz#966454e8765462e37644d3626f6742ce8b70965d"
+  integrity sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==
+  dependencies:
+    tr46 "~0.0.3"
+    webidl-conversions "^3.0.0"
 
 wordwrapjs@^4.0.0:
   version "4.0.1"
