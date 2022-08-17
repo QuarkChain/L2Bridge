@@ -138,13 +138,14 @@ async function takeOrder(transferData, sync) {
         }
         const tkPrice = await tokenPrice(tokenAddrL1);
         const maxLpFeeUnitsInUsd = BigNumber.from(transferData[4]).mul((Number(tkPrice) * 100).toFixed(0)).div(100);
+        logClaimKey(`min LP fee: $${MIN_LP_FEE}; max LP fee: ${utils.formatUnits(transferData[4], decimal)} ${name} or $${utils.formatUnits(maxLpFeeUnitsInUsd, decimal)}`);
         if (maxLpFeeUnitsInUsd.lt(MIN_LP_FEE * (10 ** decimal))) {
-            logClaimKey("LP fee too low");
+            logClaimKey("rejected: LP fee too low");
             return;
         }
         const lpFeeUnits = await dstContract.getLPFee(transferData);
         const lpFeeUnitsInUsd = lpFeeUnits.mul((Number(tkPrice) * 100).toFixed(0)).div(100);
-        logClaimKey(`min LP fee: ${MIN_LP_FEE}; current LP fee: ${utils.formatUnits(lpFeeUnits, decimal)} ${name} or ${utils.formatUnits(lpFeeUnitsInUsd, decimal)} USD`);
+        logClaimKey(`min LP fee: $${MIN_LP_FEE}; current LP fee: ${utils.formatUnits(lpFeeUnits, decimal)} ${name} or $${utils.formatUnits(lpFeeUnitsInUsd, decimal)}`);
         if (lpFeeUnitsInUsd.lt(MIN_LP_FEE * (10 ** decimal))) {
             const timeout = await timeoutForMinFee(transferData, key);
             if (timeout > 0) {
@@ -517,7 +518,7 @@ async function doWithdraw(fromCount, toCount) {
                     const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
                     logWithdraw(`withdraw costs ${utils.formatEther(cost)} ether`);
                 }
-                for (let i = fromCount; i < toCount; i++) {
+                for (let i = fromCount; i <= toCount; i++) {
                     claimedCountStatus.delete(i);
                     save();
                 }
