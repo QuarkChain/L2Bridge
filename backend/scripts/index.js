@@ -914,7 +914,7 @@ async function approve() {
         const erc20Token = new Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
             "function approve(address,uint256) public",
-        ], dstSigner);
+        ], dstNonceManager);
         const allowed = await erc20Token.allowance(dstSigner.address, dstAddress);
         if (allowed.isZero()) {
             await erc20Token.approve(dstAddress, constants.MaxUint256);
@@ -1024,7 +1024,8 @@ async function printBalances() {
 async function main() {
     logMain(`Starting LP services for L2Bridge 
                           ${DIRECTION === 'O2A' ? '(Optimism => Arbitrum)' : '(Arbitrum => Optimism)'},
-                          L1 chainId = ${L1_CHAIN_ID}`)
+                          L1 chainId = ${L1_CHAIN_ID}`);
+    logMain(`LP signer address ${l1Signer.address}`);
     process.stdin.resume();
     //do something when app is closing
     process.on('exit', async () => { await exitHandler() });
@@ -1086,7 +1087,11 @@ async function main() {
             syncPendings();
         }
     }
-    startBlock = processedBlockSrc ? processedBlockSrc : genesisBlockSrc;
+    if(processedBlockSrc) {
+        startBlock = processedBlockSrc;
+    } else {
+        startBlock = await srcProvider.getBlockNumber();
+    }
     logMain("Staring claiming service from block", startBlock, syncFlag ? "with" : "without", "sync/withdraw");
     traceDeposit(startBlock, syncFlag);
 }
