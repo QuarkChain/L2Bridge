@@ -537,7 +537,7 @@ async function doWithdraw(fromCount, toCount) {
             else {
                 err("withdraw", e)
             }
-    } 
+    }
     err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔`);
     return false;
 }
@@ -950,14 +950,15 @@ async function queryBalances() {
             const l1Addr = t.L1;
             const srcAddr = DIRECTION === "O2A" ? t.Optimism : t.Arbitrum;
             const dstAddr = DIRECTION === "O2A" ? t.Arbitrum : t.Optimism;
-            promises.push(getBalance(l1Addr, l1Signer));
+            // promises.push(getBalance(l1Addr, l1Signer));
             promises.push(getBalance(srcAddr, srcSigner));
             promises.push(getBalance(dstAddr, dstSigner));
         }
         const result = await Promise.all(promises);
         bals.ETH = result.slice(0, 3);
-        for (let t of tokens) {
-            bals[t.name] = result.slice(3);
+        const tokenPrices = result.slice(3);
+        for (let i = 0; i < tokens.length; i++) {
+            bals[tokens[i].name] = tokenPrices.slice(i * 2, i * 2 + 2);
         }
     } catch (e) {
         console.log("query balances error", e);
@@ -973,7 +974,7 @@ async function getBalance(tokenAddr, signer) {
         const balance = await erc20Token.balanceOf(signer.address);
         return balance;
     } catch (e) {
-        err(`cannot get balance of ${tokenAddr}`);
+        err("main", `cannot get balance of ${tokenAddr}`);
         // throw `cannot get balance of ${tokenAddr}`;
         return 0;
     }
@@ -1014,9 +1015,9 @@ async function printBalances() {
     console.log("--------------------------------------------------------")
     console.log(`ETH:\t${utils.formatEther(srce)}\t${utils.formatEther(dste)}\t${utils.formatEther(l1e)}\t${utils.formatEther(l1e.add(srce).add(dste))}`);
     for (let t of tokens) {
-        const [l1, src, dst] = newBals[t.name];
+        const [src, dst] = newBals[t.name];
         const fmt = (v) => utils.formatUnits(v, t.decimal);
-        console.log(`${t.name}:\t${fmt(src)}\t${fmt(dst)}\t${fmt(l1)}\t${fmt(src.add(dst).add(l1))}`);
+        console.log(`${t.name}:\t${fmt(src)}\t${fmt(dst)}\t--\t${fmt(src.add(dst))}`);
     }
     console.log("========================================================")
 }
@@ -1087,7 +1088,7 @@ async function main() {
             syncPendings();
         }
     }
-    if(processedBlockSrc) {
+    if (processedBlockSrc) {
         startBlock = processedBlockSrc;
     } else {
         startBlock = await srcProvider.getBlockNumber();
