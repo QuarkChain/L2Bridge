@@ -9,6 +9,7 @@ LP script for L2bridge is a handy tool for liquidity providers to run a backgrou
 -  Show status of pending claims and ETH and token balances of current LP account
 
 ## Installation
+Node 16 and yarn 1.22 or above are required.
 ```sh
 # download
 git clone git@github.com:QuarkChain/L2Bridge.git
@@ -74,6 +75,8 @@ RPC_OP="https://mainnet.optimism.io/"
 MIN_LP_FEE=10
 # query interval of user deposit event in seconds
 CLAIM_INTERVAL=30
+# the buffer in seconds to consider if time is enough to claim an order, in addition to the challenge period 
+CLAIM_TIME_BUFFER=68400
 # L1 chain ID
 L1_CHAIN_ID=1
 # direction
@@ -119,14 +122,33 @@ You can also choose to synchronize and withdraw a specified order according to t
 # Execute a one-time task to sync the proof of order 6 and withdraw all claimed funds before it (include 6).
 yarn sync 6
 ```
-## FAQ
+## FAQs
+### Why should I be concerned about the relay of the claimed hash head?
+When an LP claimed an order on the destination L2, a hash head is generated. This hash head needs to be relayed to the source target L2 to prove that this order is claimed by the LP so that it can be withdrawn. 
 ### What happens if the order is expired?
 If the users' deposit is expired, they can refund their token from the source L2 contract. The risk is if the order has been taken on destination L2 but the claim hash has not relayed to source L2, the LP will lose his money. 
+### What should I do to prevent my order from expired?
+First of all, you can choose to take those orders with a validity period long enough. When users deposit, the contract requires an expiration of longer than 8 days. Considering the challenge period is 7 days, when you claim an order that will be expired in 8 days, there is at most 24 hours buffer to handle the hash relay and withdraw transactions, etc. `CLAIM_TIME_BUFFER` in .env allows you to place a safe margin in addition to the challenge period before claiming an order.  
+Most importantly, you should start the procedure of relaying the hash head early enough after claiming. One choice is to sync each order automatically as soon as claimed. The default mode `yarn start` will do that for you. See [more](#what-should-i-know-before-starting-the-default-mode-service) for this mode.       
+Finally, you'd better keep an eye on the status of your pending orders, and take extra actions if needed. The `yarn status` command is what you need here.
+### What should I know before starting the default mode service?
+The `yarn start` mode will sync each claim hash head from the destination chain to the source chain till withdrawal, which is a total of 3 to 4 transactions including the withdraw transaction on the source chain.
+This is working well if there are not many orders, or the orders are spread widely in time. However, if orders are taken much frequently, the sync/withdraw transactions for each order are not only gas consuming, but unnecessary. See [here](#can-i-withdraw-multiple-orders-in-one-transaction) for more detail.
+### Can I withdraw multiple orders in one transaction?
+Yes. For example, if the hash of claim count 6 is relayed to the source chain, while the hash of count 4 is still on the way and count 3 has already been withdrawn, the contract can be called to withdraw all funds of claims from 4 to 6.   
+In the script implementation, once a claim hash relay is done, a withdraw transaction will be sent for the corresponding claim count, and all relay procedures with a smaller count number will be canceled if the withdrawal is successful.
+### How much can I earn for each order?
+There are a lot of variables to consider in this question.
+Firstly, in each user deposit order, there is a ramp-up fee with an upper bound, giving LPs time to wait for a comfortable bid price, like an English auction mechanism. By the `MIN_LP_FEE` config in .env file, you can set a lower bound of LP fee acceptable in USD.
 ### How do I control gas costs?
-To control gas costs, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
+Generally speaking, the default mode has a relatively large overhead considering gas cost.   
+To control gas costs on the transaction level, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
 Note that if maxFeePerGas is lower than maxPriorityFeePerGas the transaction will fail, so it will be ignored by the script.  
-**Warning:** If the claim hashes are not relayed to source L2 in time, there are risks that orders would be expired. 
+**Warning:** If there were network congestion and the claim hashes are not relayed to source L2 in time due to low gas price, there are risks that orders would be expired. 
 ### How can I get a better chance to win the claim bid?
 To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
     - For Arbitrum as the destination chain, use MAX_PRIORITY_FEE_AB_CLAIM to specify the max priority fee (tip) in Gwei
     - For Optimism as the destination chain, use GAS_PRICE_MULTIPLIER_OP_CLAIM which will multiply the real-time gas price.
+
+### How can I run 2 instances in different directions?
+You can download the code in two different locations, make copies of .env file for each instance, and configure it in different directions. Make sure to use different `PRIVATE_KEY` as LP account to avoid nonce confliction.
