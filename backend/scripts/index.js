@@ -320,6 +320,8 @@ async function passingHash(count) {
             if (await waitSyncedToL2(count)) {
                 await processWithdraw(count);
             }
+        } else {
+            claimedCountStatus.get(count).status = "triggerFailed";
         }
     } else {
         if (await triggerL1MsgOptimism(count)) {
@@ -334,6 +336,8 @@ async function passingHash(count) {
                     await processWithdraw(count);
                 }
             }
+        } else {
+            claimedCountStatus.get(count).status = "triggerFailed";
         }
     }
 }
@@ -778,14 +782,13 @@ async function syncCount(count) {
     let item = claimedCountStatus.get(count);
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
-        // A2O only
-        if (item && (item.status === "l1ToL2RedeemFailed" || item.status === "l1ToL2Called")) {
-            if (!await redeemRetryableTicket(count)) {
-                err("sync", `count=${count} updateHashToArbitrumFromL1 failed.`);
-                return;
+        if (DIRECTION === "A2O" && item && item.status !== "l1ToL2Redeemed" ) {
+            if (item && (item.status === "l1ToL2RedeemFailed" || item.status === "l1ToL2Called")) {
+                if (!await redeemRetryableTicket(count)) {
+                    err("sync", `count=${count} redeemRetryableTicket failed.`);
+                    return;
+                }
             }
-        }
-        if (item && item.status === "l1ToL2SetChainHashInL2Failed") {
             if (!await updateHashToArbitrumFromL1(count)) {
                 err("sync", `count=${count} updateHashToArbitrumFromL1 failed.`);
                 return;
@@ -811,6 +814,7 @@ async function syncCount(count) {
         }
         if (await waitSyncedToL2(count)) {
             await processWithdraw(count);
+            return;
         }
     }
     if (item && item.tx) {
@@ -837,7 +841,7 @@ async function checkCountStatus(count) {
         if (status === "claimed") {
             return `dst: claimed`;
         }
-        if (status === "triggered") {
+        if (status === "triggered" || status === "triggerFailed") {
             return `dst => L1: ${status}`;
         }
         if (status === "declared") {
@@ -847,7 +851,7 @@ async function checkCountStatus(count) {
                     return `dst => L1: in challenge period, waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
                 }
             }
-            return `dst => L1: challenge period end, waiting for status change`;
+            return `dst => L1: challenge period end, waiting for status change to trigger`;
         }
         // A2O only
         if (status.startsWith("l1ToL2")) {
