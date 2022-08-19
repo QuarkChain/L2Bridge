@@ -898,15 +898,13 @@ async function retrieveRewardData(fromCount, toCount) {
         out: while (true) {
             const toBlock = Math.min(curBlock, fromBlock + 5000);
             const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
-            if (i > 0) {//remove the last searched count
-                res.shift();
-            }
             logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claims`);
             for (r of res) {
                 i = i + 1;
-                if (i >= fromCount && i <= toCount) {
+                const countInEvent = r.args[4];
+                if (countInEvent >= fromCount && countInEvent <= toCount) {
                     result.push(r.args.slice(0, 4));
-                    logWithdraw(`add rewardData count=${r.args[4]} on block ${r.blockNumber}`);
+                    logWithdraw(`add rewardData count=${countInEvent} on block ${r.blockNumber}`);
                     if (result.length === total) {
                         searchedBlock = r.blockNumber;
                         break out;
