@@ -264,7 +264,7 @@ async function declare(count) {
             const maxGas = 1000000;
             tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas, { gasPrice });
         } catch (e) {
-            err('sync', `count=${count} declareNewHashChainHeadToArbi`);
+            err('sync', `count=${count} declareNewHashChainHeadToArbi error`);
             return null;
         }
     } else {
@@ -823,7 +823,7 @@ async function syncCount(count) {
     }
     const [gap, transferCount] = await Promise.all([dstContract.GAP(), dstContract.transferCount()]);
     if (count != transferCount && count % gap != 0) {
-        logSyncCount("skip sync: hash will not be found on dst; you can sync latest count:", String(transferCount));
+        logSyncCount("skip sync: hash will not be found on dst");
         return;
     }
     const txHash = await declare(count);

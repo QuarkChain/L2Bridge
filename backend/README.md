@@ -138,17 +138,20 @@ This is working well if there are not many orders, or the orders are spread wide
 Yes. For example, if the hash of claim count 6 is relayed to the source chain, while the hash of count 4 is still on the way and count 3 has already been withdrawn, the contract can be called to withdraw all funds of claims from 4 to 6.   
 In the script implementation, once a claim hash relay is done, a withdraw transaction will be sent for the corresponding claim count, and all relay procedures with a smaller count number will be canceled if the withdrawal is successful.
 ### How much can I earn for each order?
-There are a lot of variables to consider in this question.
-Firstly, in each user deposit order, there is a ramp-up fee with an upper bound, giving LPs time to wait for a comfortable bid price, like an English auction mechanism. By the `MIN_LP_FEE` config in .env file, you can set a lower bound of LP fee acceptable in USD.
-### How do I control gas costs?
-Generally speaking, the default mode has a relatively large overhead considering gas cost.   
-To control gas costs on the transaction level, you can use MAX_FEE_PER_GAS_L1 (for L1), MAX_FEE_PER_GAS_AB (for Arbitrum), or GAS_PRICE_OP (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
+There are a lot of variables to consider in this question.  
+On one hand, LP income comes from each order's LP fee. In each user deposit order, there is a ramp-up fee for LP with an upper bound, giving LPs time to wait for a comfortable bid price, like an English auction mechanism. By the `MIN_LP_FEE` config in .env file, you can set a lower bound of LP fee acceptable in USD.  
+On the other hand, you should control the operation cost as described [here](#how-can-i-control-gas-costs).  
+Moreover, there are other considerations like the risks caused by token price volatility, opportunity costs due to the fund return period, etc., which are out of the scope of this tool.
+### How can I control gas costs?
+Generally speaking, the default mode has a relatively large overhead considering gas cost. As an alternative, you can run `yarn claim` service to only claim orders, and then schedule a time to sync only the latest count. This could be the most gas-efficient strategy but is only applicable when the earliest expiration time of the claims is allowed.  
+ To control gas costs on the transaction level, you can use `MAX_FEE_PER_GAS_L1` (for L1), `MAX_FEE_PER_GAS_AB` (for Arbitrum), or `GAS_PRICE_OP` (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
 Note that if maxFeePerGas is lower than maxPriorityFeePerGas the transaction will fail, so it will be ignored by the script.  
 **Warning:** If there were network congestion and the claim hashes are not relayed to source L2 in time due to low gas price, there are risks that orders would be expired. 
 ### How can I get a better chance to win the claim bid?
-To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:
-    - For Arbitrum as the destination chain, use MAX_PRIORITY_FEE_AB_CLAIM to specify the max priority fee (tip) in Gwei
-    - For Optimism as the destination chain, use GAS_PRICE_MULTIPLIER_OP_CLAIM which will multiply the real-time gas price.
+
+To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:  
+- For Arbitrum as the destination chain (O2A), use `MAX_PRIORITY_FEE_AB_CLAIM` to specify the max priority fee (tip) in Gwei
+- For Optimism as the destination chain (A2O), use `GAS_PRICE_MULTIPLIER_OP_CLAIM` which will multiply the real-time gas price.
 
 ### How can I run 2 instances in different directions?
 You can download the code in two different locations, make copies of .env file for each instance, and configure it in different directions. Make sure to use different `PRIVATE_KEY` as LP account to avoid nonce confliction.
