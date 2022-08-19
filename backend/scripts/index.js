@@ -8,10 +8,11 @@ const { NonceManager } = require("@ethersproject/experimental");
 require("dotenv").config();
 const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
 
-const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1,
+const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1, SYNC_INTERVAL,
     MAX_PRIORITY_FEE_AB_CLAIM, GAS_PRICE_MULTIPLIER_OP_CLAIM, MAX_FEE_PER_GAS_AB, GAS_PRICE_OP, CLAIM_INTERVAL, CLAIM_TIME_BUFFER } = process.env;
 const deployment = require(DEPLOYMENTS);
 const claimInterval = CLAIM_INTERVAL * 1000;
+const syncInterval = SYNC_INTERVAL * 1000;
 if (DIRECTION !== "O2A" && DIRECTION !== "A2O") {
     throw "Supported DIRETION: 'O2A' or 'A2O'";
 }
@@ -164,17 +165,7 @@ async function takeOrder(transferData, sync) {
         const count = await take(transferData, key);
         if (count > 0) {
             claimedCountStatus.set(count, { token: name, amount: utils.formatUnits(transferData[3], decimal), status: 'claimed' });
-            if (sync) {
-                const txHash = await declare(count);
-                if (txHash) {
-                    const item = claimedCountStatus.get(count);
-                    item.status = 'declared';
-                    item.tx = txHash;
-                    item.time = Date.now();
-                    save();
-                    passingHash(count);
-                }
-            }
+            save();
         }
     } catch (e) {
         err('claim', `key=${key} takeOrder `, e);
@@ -192,7 +183,7 @@ async function take(transferData, key) {
             let maxPriorityFeePerGas = maxPriorityFeePerGasDefault;
             if (MAX_PRIORITY_FEE_AB_CLAIM > -1) {
                 const maxPriorityFeePerGasSet = utils.parseUnits(String(MAX_PRIORITY_FEE_AB_CLAIM), "gwei");
-                console.log(`maxPriorityFeePerGas set ${MAX_PRIORITY_FEE_AB_CLAIM}, maxPriorityFeePerGas default ${utils.formatUnits(maxPriorityFeePerGasDefault, "gwei")}`)
+                logClaim(`maxPriorityFeePerGas set ${MAX_PRIORITY_FEE_AB_CLAIM}, maxPriorityFeePerGas default ${utils.formatUnits(maxPriorityFeePerGasDefault, "gwei")}`)
                 if (maxPriorityFeePerGasSet.gt(maxPriorityFeePerGasDefault)) {
                     maxPriorityFeePerGas = maxPriorityFeePerGasSet;
                 }
@@ -259,6 +250,30 @@ function findTokenByL2Address(l2Addr) {
         }
     }
     throw "Cannot find token " + l2Addr;
+}
+
+async function syncLatestClaimed() {
+    logSync("start syncing latest claimed count");
+    let count = 0;
+    for (const k of claimedCountStatus.keys()) {
+        if (claimedCountStatus.get(k).status === "claimed" && k > count) {
+            count = k;
+        }
+    }
+    if (count === 0) {
+        logSync(`no claims to sync; will check again in ${syncInterval / 1000} seconds`)
+        return;
+    }
+    const txHash = await declare(count);
+    if (txHash) {
+        const item = claimedCountStatus.get(count);
+        item.status = 'declared';
+        item.tx = txHash;
+        item.time = Date.now();
+        save();
+        passingHash(count);
+    }
+    setTimeout(() => syncLatestClaimed(), syncInterval);
 }
 
 async function declare(count) {
@@ -838,7 +853,7 @@ async function syncCount(count) {
     }
     const [gap, transferCount] = await Promise.all([dstContract.GAP(), dstContract.transferCount()]);
     if (count != transferCount && count % gap != 0) {
-        logSyncCount("skip sync: hash will not be found on dst");
+        logSyncCount("skip sync: cannot declare because hash will not be found on dst");
         return;
     }
     const txHash = await declare(count);
@@ -1114,7 +1129,10 @@ async function main() {
         startBlock = await srcProvider.getBlockNumber();
     }
     logMain("Staring claiming service from block", startBlock, syncFlag ? "with" : "without", "sync/withdraw");
-    traceDeposit(startBlock, syncFlag);
+    traceDeposit(startBlock);
+    if (syncFlag) {
+        setTimeout(() => syncLatestClaimed(), syncInterval);
+    }
 }
 
 main().catch((error) => {
