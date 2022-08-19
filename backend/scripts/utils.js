@@ -40,8 +40,8 @@ function reviver(key, value) {
     return value;
 }
 
-const saveStatus = (blockSrc, claimedCountStatus) => {
-    const storage = { blockSrc };
+const saveStatus = (blockSrc, lastBlock, lastCount, claimedCountStatus) => {
+    const storage = { blockSrc, lastBlock, lastCount };
     storage.syncs = JSON.parse(JSON.stringify(claimedCountStatus, replacer));
     fs.writeFileSync(storageFile, JSON.stringify(storage, null, 2), e => {
         if (e) {
@@ -51,10 +51,12 @@ const saveStatus = (blockSrc, claimedCountStatus) => {
 }
 
 const loadStatus = () => {
-    let processedBlockSrc;
+    let processedBlockSrc, lastSearchedBlock, lastSearchedCount;
     let claimedCountStatus = new Map();
     if (fs.existsSync(storageFile)) {
-        const { blockSrc, syncs } = require(storageFile);
+        const { blockSrc, lastBlock, lastCount, syncs } = require(storageFile);
+        lastSearchedBlock = lastBlock;
+        lastSearchedCount = lastCount;
         processedBlockSrc = blockSrc;
         claimedCountStatus = JSON.parse(JSON.stringify(syncs, replacer), reviver);
     } else {
@@ -63,7 +65,7 @@ const loadStatus = () => {
             fs.mkdirSync(dir, { recursive: true });
         }
     }
-    return { processedBlockSrc, claimedCountStatus }
+    return { processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus }
 }
 
 async function tokenPrice(tokenAddress) {
@@ -126,4 +128,4 @@ class NonceManager {
     }
 }
 
-module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, NonceManager };
+module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice };

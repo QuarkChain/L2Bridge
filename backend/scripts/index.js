@@ -74,6 +74,8 @@ const opL1Messenger = new sdk.CrossChainMessenger({
 
 let claimedCountStatus;
 let processedBlockSrc;
+let lastSearchedBlock;
+let lastSearchedCount;
 
 let balances = {};
 
@@ -110,6 +112,7 @@ async function traceDeposit(fromBlock, sync) {
         err("claim", e.code ? "**" + e.code + "**" : e);
     }
     processedBlockSrc = toBlock;
+    save();
     setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
 }
 
@@ -127,10 +130,10 @@ async function takeOrder(transferData, sync) {
             logClaimKey("already bought");
             return;
         }
-        const balance = await getBalance(transferData[0], srcSigner);
+        const balance = await getBalance(transferData[1], dstSigner);
         logClaimKey(`balance of ${name}: ${utils.formatUnits(balance, decimal)}`)
-        if (balance.lt(transferData[3])) {
-            throw `INSUFFICIENT BALANCE of token ${name}`;
+        if (balance === 0 || balance.lt(transferData[3])) {
+            throw `**INSUFFICIENT BALANCE** of token ${name}`;
         }
         if (BigNumber.from(transferData[4]).isZero()) {
             logClaimKey("no LP fee");
@@ -222,7 +225,16 @@ async function take(transferData, key) {
             err("claim", `key=${key} tx failed:`, tx.hash);
         }
     } catch (e) {
-        err("claim", `key=${key}`, e);
+        if (e.body) {
+            const { error } = JSON.parse(e.body);
+            err("claim", `key=${key}`, error.message);
+        } else
+            if (e.reason) {
+                err("claim", `key=${key}`, e.reason);
+            }
+            else {
+                err("claim", `key=${key}`, e);
+            }
     }
     return 0;
 }
@@ -488,7 +500,7 @@ async function processWithdraw(count) {
 
 async function doWithdraw(fromCount, toCount) {
     logWithdraw(`do withdraw from ${fromCount} to ${toCount}`);
-    const rewardDataList = await retrieveRewardData(fromCount, toCount);
+    const { result: rewardDataList, searchedBlock } = await retrieveRewardData(fromCount, toCount);
     let tx;
     try {
         if (rewardDataList.length === 0) {
@@ -526,6 +538,9 @@ async function doWithdraw(fromCount, toCount) {
                     claimedCountStatus.delete(i);
                     save();
                 }
+                lastSearchedBlock = searchedBlock;
+                lastSearchedCount = toCount;
+                save();
                 return true;
             }
             err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx.hash}`);
@@ -642,7 +657,7 @@ async function updateHashToArbitrumFromL1(count) {
             }
             const l1TxReceipt = new L1TransactionReceipt(setRec);
             const message = (await l1TxReceipt.getL1ToL2Messages(srcNonceManager))[0];
-            logSyncCount("start waiting for status");
+            logSyncCount("start waiting for redeem to Arbitrum");
             for (let i = 0; i < 3; i++) {
                 let result;
                 try {
@@ -782,7 +797,7 @@ async function syncCount(count) {
     let item = claimedCountStatus.get(count);
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
-        if (DIRECTION === "A2O" && item && item.status !== "l1ToL2Redeemed" ) {
+        if (DIRECTION === "A2O" && item && item.status !== "l1ToL2Redeemed") {
             if (item && (item.status === "l1ToL2RedeemFailed" || item.status === "l1ToL2Called")) {
                 if (!await redeemRetryableTicket(count)) {
                     err("sync", `count=${count} redeemRetryableTicket failed.`);
@@ -875,20 +890,25 @@ async function retrieveRewardData(fromCount, toCount) {
     logWithdraw(`start searching on chain for rewardData from ${fromCount} to ${toCount}`);
     const total = toCount - fromCount + 1;
     let result = [];
-    let fromBlock = genesisBlockDst;
-    let i = 0;
+    let fromBlock = lastSearchedBlock ? lastSearchedBlock : genesisBlockDst;
+    let i = lastSearchedCount ? lastSearchedCount : 0;
+    let searchedBlock = lastSearchedBlock;
     try {
         const curBlock = await dstProvider.getBlockNumber();
         out: while (true) {
             const toBlock = Math.min(curBlock, fromBlock + 5000);
             const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
+            if (i > 0) {//remove the last searched count
+                res.shift();
+            }
             logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claims`);
             for (r of res) {
                 i = i + 1;
                 if (i >= fromCount && i <= toCount) {
                     result.push(r.args.slice(0, 4));
-                    logWithdraw(`add rewardData count=${i} on block ${r.blockNumber}`);
+                    logWithdraw(`add rewardData count=${r.args[4]} on block ${r.blockNumber}`);
                     if (result.length === total) {
+                        searchedBlock = r.blockNumber;
                         break out;
                     }
                 }
@@ -901,7 +921,7 @@ async function retrieveRewardData(fromCount, toCount) {
     } catch (e) {
         err("withdraw", "query Claim events failed:", e.code ? "**" + e.code + "**" : e);
     }
-    return result;
+    return { result, searchedBlock };
 }
 
 async function syncPendings() {
@@ -933,9 +953,7 @@ async function exitHandler() {
         return;
     }
     exiting = true;
-    if (claimedCountStatus) {
-        saveStatus(processedBlockSrc, claimedCountStatus);
-    }
+    save();
     if (!(process.argv.length > 2 && (process.argv[2] === "status" || process.argv[2] === "sync"))) {
         console.log("\ntotal claimed", totalClaim);
     }
@@ -943,7 +961,7 @@ async function exitHandler() {
 }
 
 function save() {
-    saveStatus(processedBlockSrc, claimedCountStatus);
+    saveStatus(processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus);
 }
 
 async function queryBalances() {
@@ -972,13 +990,13 @@ async function queryBalances() {
 
 async function getBalance(tokenAddr, signer) {
     try {
-        const erc20Token = new ethers.Contract(tokenAddr, [
+        const erc20Token = new Contract(tokenAddr, [
             "function balanceOf(address) public view returns (uint256)"
         ], signer);
         const balance = await erc20Token.balanceOf(signer.address);
         return balance;
     } catch (e) {
-        err("main", `cannot get balance of ${tokenAddr}`);
+        err("main", `cannot get balance of ${tokenAddr}`, e);
         // throw `cannot get balance of ${tokenAddr}`;
         return 0;
     }
@@ -1040,7 +1058,7 @@ async function main() {
         console.error(e);
         process.exit(1);
     });
-    ({ processedBlockSrc, claimedCountStatus } = loadStatus());
+    ({ processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus } = loadStatus());
     if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "-sync")) {
         await approve();
     }
