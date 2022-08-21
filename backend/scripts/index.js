@@ -82,7 +82,7 @@ let balances = {};
 
 let totalClaim = 0;
 
-async function traceDeposit(fromBlock, sync) {
+async function traceDeposit(fromBlock) {
     let toBlock;
     try {
         let transferData = [];
@@ -103,21 +103,21 @@ async function traceDeposit(fromBlock, sync) {
                 const timeout = transferData[i][5] * 1000 - Date.now();
                 logClaim(`the deposit is not started; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
-                    takeOrder(transferData[i], sync);
+                    takeOrder(transferData[i]);
                 }, timeout);
                 continue;
             }
-            await takeOrder(transferData[i], sync);
+            await takeOrder(transferData[i]);
         }
     } catch (e) {
         err("claim", e.code ? "**" + e.code + "**" : e);
     }
     processedBlockSrc = toBlock;
     save();
-    setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
+    setTimeout(() => traceDeposit(toBlock + 1), claimInterval);
 }
 
-async function takeOrder(transferData, sync) {
+async function takeOrder(transferData) {
     const transferDataHash = utils.keccak256(
         utils.defaultAbiCoder.encode([
             "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
@@ -155,7 +155,7 @@ async function takeOrder(transferData, sync) {
             if (timeout > 0) {
                 logClaimKey(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
-                    takeOrder(transferData, sync);
+                    takeOrder(transferData);
                 }, timeout);
             }
             return;
@@ -166,6 +166,17 @@ async function takeOrder(transferData, sync) {
         if (count > 0) {
             claimedCountStatus.set(count, { token: name, amount: utils.formatUnits(transferData[3], decimal), status: 'claimed' });
             save();
+            if (syncInterval === 0) {
+                const txHash = await declare(count);
+                if (txHash) {
+                    const item = claimedCountStatus.get(count);
+                    item.status = 'declared';
+                    item.tx = txHash;
+                    item.time = Date.now();
+                    save();
+                    passingHash(count);
+                }
+            }
         }
     } catch (e) {
         err('claim', `key=${key} takeOrder `, e);
@@ -254,24 +265,41 @@ function findTokenByL2Address(l2Addr) {
 
 async function syncLatestClaimed() {
     logSync("start syncing latest claimed count");
-    let count = 0;
+    const unsynced = [];
     for (const k of claimedCountStatus.keys()) {
-        if (claimedCountStatus.get(k).status === "claimed" && k > count) {
-            count = k;
+        if (claimedCountStatus.get(k).status === "claimed") {
+            unsynced.push(k);
         }
     }
-    if (count === 0) {
-        logSync(`no claims to sync; will check again in ${syncInterval / 1000} seconds`)
-        return;
-    }
-    const txHash = await declare(count);
-    if (txHash) {
-        const item = claimedCountStatus.get(count);
-        item.status = 'declared';
-        item.tx = txHash;
-        item.time = Date.now();
-        save();
-        passingHash(count);
+    if (unsynced.length === 0) {
+        logSync(`no claims to sync; will check again in ${syncInterval / 1000} seconds`);
+    } else {
+        let count;
+        try {
+            const latestCount = await dstContract.transferCount();
+            count = latestCount.toNumber();
+        } catch (e) {
+            err('sync', "transferCount error", e.code);
+        }
+        if (count > 0) {
+            const txHash = await declare(count);
+            if (txHash) {
+                let item = claimedCountStatus.get(count); // could be other LP's count
+                if (!item) {
+                    item = {};
+                    claimedCountStatus.set(count, item);
+                    unsynced.push(count);
+                }
+                for (const k of unsynced) {
+                    const item = claimedCountStatus.get(k);
+                    item.status = 'declared';
+                    item.tx = txHash;
+                    item.time = Date.now();
+                }
+                save();
+                passingHash(count);
+            }
+        }
     }
     setTimeout(() => syncLatestClaimed(), syncInterval);
 }
@@ -279,9 +307,10 @@ async function syncLatestClaimed() {
 async function declare(count) {
     logSync("declare for count", String(count));
     let tx;
+    let gasPrice;
     if (DIRECTION === "A2O") {
         try {
-            let gasPrice = await srcProvider.getGasPrice();
+            gasPrice = await srcProvider.getGasPrice();
             if (GAS_PRICE_OP > 0) {
                 let gasPriceCeil = utils.parseUnits(GAS_PRICE_OP, "gwei");
                 if (gasPrice.gt(gasPriceCeil)) {
@@ -310,6 +339,13 @@ async function declare(count) {
     if (tx) {
         const receipt = await tx.wait();
         if (receipt.status == 1) {
+            let cost;
+            if (receipt.effectiveGasPrice) {
+                cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
+            } else {
+                cost = receipt.gasUsed.mul(gasPrice);
+            }
+            logSync(`declared successfully costs ${utils.formatEther(cost)} ether`);
             const chainHead = `0x${receipt.events[1].data.slice(-64)}`;
             logSync("chainHead", chainHead);
             return tx.hash;
@@ -1075,7 +1111,6 @@ async function main() {
     if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "-sync")) {
         await approve();
     }
-    let syncFlag = false;
     let startBlock;
     if (process.argv.length > 2) {
         const args = process.argv.slice(2);
@@ -1118,8 +1153,7 @@ async function main() {
             logMain("Done status.");
             process.exit();
         }
-        if (args[0] === "-sync") {
-            syncFlag = true;
+        if (syncInterval === 0) {
             syncPendings();
         }
     }
@@ -1128,9 +1162,9 @@ async function main() {
     } else {
         startBlock = await srcProvider.getBlockNumber();
     }
-    logMain("Staring claiming service from block", startBlock, syncFlag ? "with" : "without", "sync/withdraw");
+    logMain("Staring claiming service from block", startBlock, syncInterval > -1 ? "with" : "**without**", "sync/withdraw");
     traceDeposit(startBlock);
-    if (syncFlag) {
+    if (syncInterval > 0) {
         setTimeout(() => syncLatestClaimed(), syncInterval);
     }
 }

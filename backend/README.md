@@ -75,6 +75,10 @@ RPC_OP="https://mainnet.optimism.io/"
 MIN_LP_FEE=10
 # query interval of user deposit event in seconds
 CLAIM_INTERVAL=30
+# time interval in seconds for the sync service to run. 
+# Automatically sync every claimed hash head if SYNC_INTERVAL=0.
+# Or you can choose not to run sync service at all by setting SYNC_INTERVAL=-1. Please be noted that this may save some gas but at the risk of the expiration of orders.
+SYNC_INTERVAL=600
 # the buffer in seconds to consider if time is enough to claim an order, in addition to the challenge period 
 CLAIM_TIME_BUFFER=68400
 # L1 chain ID
@@ -97,24 +101,16 @@ MAX_PRIORITY_FEE_AB_CLAIM=-1
 GAS_PRICE_MULTIPLIER_OP_CLAIM=100
 ```
 ### Usages
-Usually, you can run the service in the default mode, which will do almost everything for an LP.
+Usually, you can run the service in the default mode, which starts a service to watch user deposits on the source chain and claim. Working with `SYNC_INTERVAL` config, you can also sync proofs, as well as withdraw funds on the destination chain as soon as sync finishes.
 ```sh
-# Start a service to watch user deposits on the source chain, and claim, sync proofs, as well as withdraw funds on the destination chain as soon as sync finishes.
 yarn start
 ```
-Or you can run claim service to only take orders if there is no rush to synchronize proofs and withdraw funds. Please be noted that this may save some gas but at the risk of the expiration of orders.
+An independent one-time task to relay the last claim's hash and withdraw all your claims before and include that count.
 ```sh
-# Start a service to watch user deposits on the source chain, and to claim on the destination chain.
-yarn claim
-```
-Then you can synchronize and withdraw all funds together.
-```sh
-# Execute a one-time task to sync the latest order, and withdraw all claimed funds.
 yarn sync
 ```
 You can check the status of all of the orders you claimed but have not withdrawn yet.
 ```sh
-# Execute a one-time task to list the status of each claimed order
 yarn status
 ```
 You can also choose to synchronize and withdraw a specified order according to the current status.
@@ -129,11 +125,14 @@ When an LP claimed an order on the destination L2, a hash head is generated. Thi
 If the users' deposit is expired, they can refund their token from the source L2 contract. The risk is if the order has been taken on destination L2 but the claim hash has not relayed to source L2, the LP will lose his money. 
 ### What should I do to prevent my order from expired?
 First of all, you can choose to take those orders with a validity period long enough. When users deposit, the contract requires an expiration of longer than 8 days. Considering the challenge period is 7 days, when you claim an order that will be expired in 8 days, there is at most 24 hours buffer to handle the hash relay and withdraw transactions, etc. `CLAIM_TIME_BUFFER` in .env allows you to place a safe margin in addition to the challenge period before claiming an order.  
-Most importantly, you should start the procedure of relaying the hash head early enough after claiming. One choice is to sync each order automatically as soon as claimed. The default mode `yarn start` will do that for you. See [more](#what-should-i-know-before-starting-the-default-mode-service) for this mode.       
+Most importantly, you should start the procedure of relaying the hash head early enough after claiming. One choice is to sync each order automatically as soon as claimed. `SYNC_INTERVAL` plays an important role here. See [more](#how-should-i-manage-the-sync-service) for more detail.       
 Finally, you'd better keep an eye on the status of your pending orders, and take extra actions if needed. The `yarn status` command is what you need here.
-### What should I know before starting the default mode service?
-The `yarn start` mode will sync each claim hash head from the destination chain to the source chain till withdrawal, which is a total of 3 to 4 transactions including the withdraw transaction on the source chain.
-This is working well if there are not many orders, or the orders are spread widely in time. However, if orders are taken much frequently, the sync/withdraw transactions for each order are not only gas consuming, but unnecessary. See [here](#can-i-withdraw-multiple-orders-in-one-transaction) for more detail.
+### How should I manage the sync service?
+The sync service will relay each claim hash head from the destination chain to the source chain till withdrawal, which is a total of 3 to 4 transactions including the withdraw transaction on the source chain.
+You can control the frequency of the declare operation which starts the sync procedure by `SYNC_INTERVAL`.   
+If `SYNC_INTERVAL` is set to -1, you will not sync your claims actively. There is a possibility that you can still get your funds back while other LP does sync and withdrawals and this could be the most gas-efficient strategy. If nobody else does so, there could be a risk your claim will be expired. As an option, you can sync manually with `yarn sync` to sync only the latest count later in a proper time.   
+If `SYNC_INTERVAL` is set to 0, each claim will be declared immediately after a claim. This mode will work if there are not many orders, or if the orders are spread widely in time. However, if orders are taken much frequently, the sync/withdraw transactions for each order are not only gas consuming, but unnecessary. See [here](#can-i-withdraw-multiple-orders-in-one-transaction) for more detail.   
+Ideally, you can set `SYNC_INTERVAL` to a proper value in seconds so that the sync service only declares the latest claim periodically, and you can balance your gas cost and expiration risk. 
 ### Can I withdraw multiple orders in one transaction?
 Yes. For example, if the hash of claim count 6 is relayed to the source chain, while the hash of count 4 is still on the way and count 3 has already been withdrawn, the contract can be called to withdraw all funds of claims from 4 to 6.   
 In the script implementation, once a claim hash relay is done, a withdraw transaction will be sent for the corresponding claim count, and all relay procedures with a smaller count number will be canceled if the withdrawal is successful.
@@ -141,14 +140,13 @@ In the script implementation, once a claim hash relay is done, a withdraw transa
 There are a lot of variables to consider in this question.  
 On one hand, LP income comes from each order's LP fee. In each user deposit order, there is a ramp-up fee for LP with an upper bound, giving LPs time to wait for a comfortable bid price, like an English auction mechanism. By the `MIN_LP_FEE` config in .env file, you can set a lower bound of LP fee acceptable in USD.  
 On the other hand, you should control the operation cost as described [here](#how-can-i-control-gas-costs).  
-Moreover, there are other considerations like the risks caused by token price volatility, opportunity costs due to the fund return period, etc., which are out of the scope of this tool.
+Moreover, there are other considerations like operation cost to run the service, the risks caused by token price volatility, opportunity costs due to the fund return period, etc., which are out of the scope of this tool.
 ### How can I control gas costs?
-Generally speaking, the default mode has a relatively large overhead considering gas cost. As an alternative, you can run `yarn claim` service to only claim orders, and then schedule a time to sync only the latest count. This could be the most gas-efficient strategy but is only applicable when the earliest expiration time of the claims is allowed.  
- To control gas costs on the transaction level, you can use `MAX_FEE_PER_GAS_L1` (for L1), `MAX_FEE_PER_GAS_AB` (for Arbitrum), or `GAS_PRICE_OP` (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
+As described [here] (#how-should-i-manage-the-sync-service), you can choose sync strategy to control gas costs caused by sync transactions.  
+To control gas costs on the transaction level, you can use `MAX_FEE_PER_GAS_L1` (for L1), `MAX_FEE_PER_GAS_AB` (for Arbitrum), or `GAS_PRICE_OP` (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
 Note that if maxFeePerGas is lower than maxPriorityFeePerGas the transaction will fail, so it will be ignored by the script.  
 **Warning:** If there were network congestion and the claim hashes are not relayed to source L2 in time due to low gas price, there are risks that orders would be expired. 
 ### How can I get a better chance to win the claim bid?
-
 To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:  
 - For Arbitrum as the destination chain (O2A), use `MAX_PRIORITY_FEE_AB_CLAIM` to specify the max priority fee (tip) in Gwei
 - For Optimism as the destination chain (A2O), use `GAS_PRICE_MULTIPLIER_OP_CLAIM` which will multiply the real-time gas price.
