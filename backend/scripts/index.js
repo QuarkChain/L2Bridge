@@ -6,7 +6,7 @@ const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1
 const { hexDataLength } = require('@ethersproject/bytes');
 const { NonceManager } = require("@ethersproject/experimental");
 require("dotenv").config();
-const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
+const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, ask } = require("./utils");
 
 const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1, SYNC_INTERVAL,
     MAX_PRIORITY_FEE_AB_CLAIM, GAS_PRICE_MULTIPLIER_OP_CLAIM, MAX_FEE_PER_GAS_AB, GAS_PRICE_OP, CLAIM_INTERVAL, CLAIM_TIME_BUFFER } = process.env;
@@ -841,12 +841,18 @@ async function syncCount(count) {
         logSyncCount("already withdrawn");
         return;
     }
+    let item = claimedCountStatus.get(count);
+    if (!item) {
+        const answer = await ask(`Count ${count} does not seem initialized locally, and could be managed by others. Continue (y/n)?`);
+        if (answer !== 'y') {
+            return;
+        }
+    }
     if (await checkSyncResult(count)) {
         logSyncCount("already synced to src");
         await processWithdraw(count);
         return;
     }
-    let item = claimedCountStatus.get(count);
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
         if (DIRECTION === "A2O" && item && item.status !== "l1ToL2Redeemed") {
@@ -1109,7 +1115,7 @@ async function main() {
         process.exit(1);
     });
     ({ processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus } = loadStatus());
-    if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "-sync")) {
+    if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "sync")) {
         await approve();
     }
     let startBlock;
@@ -1136,6 +1142,28 @@ async function main() {
             process.exit();
         }
         if (args[0] === "status") {
+            let count;
+            if (args.length > 1) {
+                if (isNaN(args[1])) {
+                    logMain("invalid count", args[1]);
+                    process.exit();
+                }
+                count = parseInt(args[1]);
+                logMain("Status of user specified count", count);
+                if (claimedCountStatus.has(count)) {
+                    const { token, amount } = claimedCountStatus.get(count);
+                    console.log("========================================================")
+                    console.log(`count\tamount\ttoken\tstatus`);
+                    console.log("----------------------------")
+                    const status = await checkCountStatus(c);
+                    console.log(count, `\t${amount}\t${token}\t${status}`);
+                    console.log("========================================================")
+                } else {
+                    console.log(count, await checkCountStatus(count));
+                }
+                logMain("Done status.");
+                process.exit();
+            }
             logMain("Start checking status of your pending claims...");
             const status = new Map();
             for (let c of claimedCountStatus.keys()) {
@@ -1154,14 +1182,15 @@ async function main() {
             logMain("Done status.");
             process.exit();
         }
+        if (Number.isInteger(args[0])) {
+            startBlock = parseInt(args[0]);
+        }
         if (syncInterval === 0) {
             syncPendings();
         }
     }
-    if (processedBlockSrc) {
-        startBlock = processedBlockSrc;
-    } else {
-        startBlock = await srcProvider.getBlockNumber();
+    if (!startBlock) {
+        startBlock = processedBlockSrc ? processedBlockSrc : await srcProvider.getBlockNumber();
     }
     logMain("Staring claiming service from block", startBlock, syncInterval > -1 ? "with" : "**without**", "sync/withdraw");
     traceDeposit(startBlock);

@@ -100,32 +100,17 @@ async function fastGasPrice() {
         return cacheGasPrice;
     }
 }
+const readline = require('readline');
 
-class NonceManager {
-    constructor(startNonce) {
-        this.nonceOffset = 0;
-        // this.provider = signer.provider;
-        // this.address = signer.address;
-        this.baseNonce = startNonce;
-    }
-
-    // async baseNonce() {
-    //     return await this.provider.getTransactionCount(this.address);
-    // }
-
-    getNonce() {
-        // const nonce = this.baseNonce.then((nonce) => {
-        //     console.log("baseNonce called")
-        //     return (nonce + (this.nonceOffset++));
-        // });
-        console.log('nonceOffset', this.nonceOffset)
-        const nonce = this.baseNonce + (this.nonceOffset++);
-        return nonce;
-        // const bn =   this.baseNonce();
-        // const nonce = bn + this.nonceOffset++;
-        // console.log("baseNonce", bn, "offset", this.nonceOffset, "nonce", nonce)
-        // return nonce;
-    }
+function ask(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+    return new Promise(resolve => rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+    }))
 }
 
-module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice };
+module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, ask };

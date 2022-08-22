@@ -101,21 +101,30 @@ MAX_PRIORITY_FEE_AB_CLAIM=-1
 GAS_PRICE_MULTIPLIER_OP_CLAIM=100
 ```
 ### Usages
-Usually, you can run the service in the default mode, which starts a service to watch user deposits on the source chain and claim. Working with `SYNC_INTERVAL` config, you can also sync proofs, as well as withdraw funds on the destination chain as soon as sync finishes.
+Usually, you can run the service in the default mode, which starts a service to watch user deposits on the source chain and claim.   
+Working with `SYNC_INTERVAL` config, you can also sync claimed hash head, as well as withdraw funds on the destination chain as soon as sync finishes.  
+The script will start listening to users' deposit events on the latest block at the first start, or continue with the last processed block at a restart.
 ```sh
 yarn start
 ```
-An independent one-time task to relay the last claim's hash and withdraw all your claims before and include that count.
+You can also specify a block number manually to start with. 
 ```sh
-yarn sync
+yarn start 348221
 ```
 You can check the status of all of the orders you claimed but have not withdrawn yet.
 ```sh
 yarn status
 ```
-You can also choose to synchronize and withdraw a specified order according to the current status.
+Check status with a specified count.
 ```sh
-# Execute a one-time task to sync the proof of order 6 and withdraw all claimed funds before it (include 6).
+yarn status 6
+```
+A one-time task to relay the last claim's hash and withdraw all your claims before and include that count.
+```sh
+yarn sync
+```
+You can also choose to synchronize and withdraw a specified order in favor. For example,  the following command executes a one-time task to sync the proof of order 6 and withdraw all claimed funds before it (include 6).
+```sh
 yarn sync 6
 ```
 ## FAQs
@@ -140,7 +149,7 @@ In the script implementation, once a claim hash relay is done, a withdraw transa
 There are a lot of variables to consider in this question.  
 On one hand, LP income comes from each order's LP fee. In each user deposit order, there is a ramp-up fee for LP with an upper bound, giving LPs time to wait for a comfortable bid price, like an English auction mechanism. By the `MIN_LP_FEE` config in .env file, you can set a lower bound of LP fee acceptable in USD.  
 On the other hand, you should control the operation cost as described [here](#how-can-i-control-gas-costs).  
-Moreover, there are other considerations like operation cost to run the service, the risks caused by token price volatility, opportunity costs due to the fund return period, etc., which are out of the scope of this tool.
+Moreover, there are other considerations like operation cost to run the service, the risks caused by token price volatility, opportunity costs due to liquidity turnover, etc., which are out of the scope of this tool.
 ### How can I control gas costs?
 As described [here] (#how-should-i-manage-the-sync-service), you can choose sync strategy to control gas costs caused by sync transactions.  
 To control gas costs on the transaction level, you can use `MAX_FEE_PER_GAS_L1` (for L1), `MAX_FEE_PER_GAS_AB` (for Arbitrum), or `GAS_PRICE_OP` (for Optimism) to limit the gas price for transactions other than taking orders (a.k.a claim). If the real-time gas price is higher, the transactions will be pending for later confirmation.   
