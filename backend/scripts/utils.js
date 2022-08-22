@@ -81,7 +81,7 @@ async function tokenPrice(tokenAddress) {
             return price;
         }
     } catch (e) {
-        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
+        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : '');
     }
     return cachePrices[tokenAddress] || 1;
 }

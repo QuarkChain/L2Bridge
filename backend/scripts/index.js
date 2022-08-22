@@ -305,7 +305,8 @@ async function syncLatestClaimed() {
 }
 
 async function declare(count) {
-    logSync("declare for count", String(count));
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
+    logSyncCount("start declare");
     let tx;
     let gasPrice;
     if (DIRECTION === "A2O") {
@@ -345,9 +346,9 @@ async function declare(count) {
             } else {
                 cost = receipt.gasUsed.mul(gasPrice);
             }
-            logSync(`declared successfully costs ${utils.formatEther(cost)} ether`);
+            logSyncCount(`declared successfully costs ${utils.formatEther(cost)} ether`);
             const chainHead = `0x${receipt.events[1].data.slice(-64)}`;
-            logSync("chainHead", chainHead);
+            logSyncCount("chainHead", chainHead);
             return tx.hash;
         }
     }
@@ -920,7 +921,7 @@ async function checkCountStatus(count) {
             return `dst => L1: challenge period end, waiting for status change to trigger`;
         }
         // A2O only
-        if (status.startsWith("l1ToL2")) {
+        if (status && status.startsWith("l1ToL2")) {
             return `L1 => src: ${status}`;
         }
         return status;
