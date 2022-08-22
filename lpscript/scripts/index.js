@@ -902,7 +902,7 @@ async function syncCount(count) {
     const txHash = await declare(count);
     logSyncCount("sync hash from dst chain.");
     if (txHash) {
-        claimedCountStatus.set(count, { tx: txHash, time: Date.now() });
+        claimedCountStatus.set(count, { status: "declared", tx: txHash, time: Date.now() });
         await passingHash(count);
     }
 }
