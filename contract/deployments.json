@@ -63,14 +63,14 @@
             {
                 "name": "USDT",
                 "decimal": 18,
-                "L1": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
+                "L1": "0xdac17f958d2ee523a2206206994597c13d831ec7",
                 "Optimism": "0x466869e807dd3D332D9b034Fa0F0bebE55CFaf82",
                 "Arbitrum": "0xE77815fAC07009fD53e34E7F2874f0e781638E50"
             },
             {
                 "name": "USDC",
                 "decimal": 18,
-                "L1": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
+                "L1": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
                 "Optimism": "0x93305dE5e4809F37c23f6e5C1EE023110116eD25",
                 "Arbitrum": "0x9edd2920723290277BE071AfFF1De9a843451871"
             }
