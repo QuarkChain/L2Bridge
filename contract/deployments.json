@@ -47,32 +47,18 @@
     "5": {
         "tokens": [
             {
-                "name": "TEST",
-                "decimal": 18,
-                "L1": "0x514910771af9ca656af840dff83e8264ecf986ca",
-                "Optimism": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
-                "Arbitrum": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325"
-            },
-            {
-                "name": "AAAA",
-                "decimal": 18,
-                "L1": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
-                "Optimism": "0x36B6E077442d7053292cD374893E71A4318696D4",
-                "Arbitrum": "0x425B0D205722DAfb2601DEbA9df3cC458c3bE221"
-            },
-            {
                 "name": "USDT",
                 "decimal": 18,
                 "L1": "0xdac17f958d2ee523a2206206994597c13d831ec7",
-                "Optimism": "0x466869e807dd3D332D9b034Fa0F0bebE55CFaf82",
-                "Arbitrum": "0xE77815fAC07009fD53e34E7F2874f0e781638E50"
+                "Optimism": "0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB",
+                "Arbitrum": "0x3D21CEd9E5F2CA9393AF09897F0c43fa4d2B4a34"
             },
             {
                 "name": "USDC",
                 "decimal": 18,
                 "L1": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                "Optimism": "0x93305dE5e4809F37c23f6e5C1EE023110116eD25",
-                "Arbitrum": "0x9edd2920723290277BE071AfFF1De9a843451871"
+                "Optimism": "0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a",
+                "Arbitrum": "0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff"
             }
         ],
         "O2A": {

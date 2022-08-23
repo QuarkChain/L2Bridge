@@ -89,7 +89,7 @@ async function traceDeposit(fromBlock) {
         toBlock = await srcProvider.getBlockNumber();
         if (toBlock >= fromBlock) {
             const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-            logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+            logClaim(`from block ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
             transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
         }
         for (let i = 0; i < transferData.length; i++) {
@@ -425,7 +425,7 @@ async function triggerL1MsgOptimism(count) {
     while (true) {
         try {
             const state = await opL1Messenger.getMessageStatus(txHash);
-            logSyncCount(`OP status=${state}; expected: ${sdk.MessageStatus.READY_FOR_RELAY}`);
+            logSyncCount(`OP status=${sdk.MessageStatus[state]}; expected: ${sdk.MessageStatus[sdk.MessageStatus.READY_FOR_RELAY]}`);
             if (state === sdk.MessageStatus.RELAYED) {
                 logSyncCount(`relayed`);
                 break;
@@ -442,16 +442,23 @@ async function triggerL1MsgOptimism(count) {
     logSyncCount("start finalizing");
     let tx;
     try {
+        const gasEst = await opL1Messenger.estimateGas.finalizeMessage(txHash);
         if (MAX_FEE_PER_GAS_L1 > 0) {
-            tx = await opL1Messenger.finalizeMessage(txHash, { maxFeePerGas: MAX_FEE_PER_GAS_L1 });
+            const maxFeePerGas = utils.parseUnits(MAX_FEE_PER_GAS_L1, "gwei");
+            const cost = gasEst.mul(maxFeePerGas);
+            logSyncCount(`finalize using MAX_FEE_PER_GAS_L1 (${MAX_FEE_PER_GAS_L1} gwei) estimated cost ${utils.formatEther(cost)} ether`)
+            tx = await opL1Messenger.finalizeMessage(txHash, { maxFeePerGas });
         } else {
+            const { maxFeePerGas } = await l1Provider.getFeeData();
+            const cost = gasEst.mul(maxFeePerGas);
+            logSyncCount(`finalize using default maxFeePerGas ${maxFeePerGas} estimated cost ${utils.formatEther(cost)} ether`)
             tx = await opL1Messenger.finalizeMessage(txHash);
         }
         if (tx) {
             const receipt = await tx.wait();
             if (receipt.status == 1) {
                 const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-                logSyncCount(`relay message successfully with cost of ${utils.formatEther(cost)} ether`);
+                logSyncCount(`relay message successfully with cost of ${utils.formatEther(cost)} ether, effective gas price ${utils.formatUnits(receipt.effectiveGasPrice, "gwei")} gwei`);
                 claimedCountStatus.get(count).status = "triggered";
                 save();
                 return true;
@@ -670,7 +677,7 @@ async function updateHashToArbitrumFromL1(count) {
             if (MAX_FEE_PER_GAS_L1 > 0) {
                 const maxFeePerGas = utils.parseUnits(MAX_FEE_PER_GAS_L1, "gwei");
                 const cost = maxFeePerGas.mul(gasEst);
-                logSyncCount(`setChainHashInL2 estimated cost at most: ${utils.formatEther(cost)} ether`);
+                logSyncCount(`setChainHashInL2 using MAX_FEE_PER_GAS_L1 (${MAX_FEE_PER_GAS_L1} gwei) estimated cost at most: ${utils.formatEther(cost)} ether`);
                 setTx = await l1Contract.setChainHashInL2(
                     count,
                     submissionPriceWei,
@@ -679,7 +686,9 @@ async function updateHashToArbitrumFromL1(count) {
                     { value: callValue, maxFeePerGas }
                 );
             } else {
-                const cost = gasPriceL1.mul(gasEst);
+                const { maxFeePerGas } = await l1Provider.getFeeData();
+                console.log("maxFeePerGas=" + maxFeePerGas)
+                const cost = maxFeePerGas.mul(gasEst);
                 logSyncCount(`setChainHashInL2 estimated cost at most: ${utils.formatEther(cost)} ether`);
                 setTx = await l1Contract.setChainHashInL2(
                     count,
@@ -690,7 +699,7 @@ async function updateHashToArbitrumFromL1(count) {
                 );
             }
         } catch (e) {
-            logSyncCount(`setChainHashInL2 failed.`, e.code ? "**" + e.code + "**" : e);
+            logSyncCount(`setChainHashInL2 failed.`, e);
             claimedCountStatus.get(count).status = "l1ToL2SetChainHashInL2Failed";
             save();
             return false;
@@ -701,6 +710,7 @@ async function updateHashToArbitrumFromL1(count) {
             item.status = "l1ToL2Called";
             item.setTx = setTx.hash;
             save();
+            console.log("effectiveGasPrice=" + setRec.effectiveGasPrice)
             if (setRec.effectiveGasPrice) {
                 const cost = setRec.gasUsed.mul(setRec.effectiveGasPrice);
                 logSyncCount(`setChainHashInL2 successfully on L1 with cost of ${utils.formatEther(cost)} ether`);
@@ -719,7 +729,7 @@ async function updateHashToArbitrumFromL1(count) {
                     const status = await message.status();
                     result = { status };
                 }
-                logSyncCount("status", result.status);
+                logSyncCount("status", L1ToL2MessageStatus[result.status]);
                 if (result.status === L1ToL2MessageStatus.REDEEMED) {
                     logSyncCount(`L2 retryable txn executed`);
                     claimedCountStatus.get(count).status = "l1ToL2Redeemed";
@@ -760,7 +770,7 @@ async function redeemRetryableTicket(count, message) {
     }
     const status = await message.status();
     if (status === L1ToL2MessageStatus.REDEEMED) {
-        logSyncCount(`L2 retryable txn executed ${message.l2TxHash}`);
+        logSyncCount(`Already redeemed.`);
         claimedCountStatus.get(count).status = "l1ToL2Redeemed";
         save();
         return true;
@@ -956,7 +966,9 @@ async function retrieveRewardData(fromCount, toCount) {
         out: while (true) {
             const toBlock = Math.min(curBlock, fromBlock + 5000);
             const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
-            logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claims`);
+            if (res.length > 0) {
+                logWithdraw(`from block ${fromBlock} to ${toBlock} has ${res.length} Claims`);
+            }
             for (r of res) {
                 i = i + 1;
                 const countInEvent = r.args[4];
@@ -1011,7 +1023,7 @@ async function exitHandler() {
     exiting = true;
     save();
     if (!(process.argv.length > 2 && (process.argv[2] === "status" || process.argv[2] === "sync"))) {
-        console.log("\ntotal claimed", totalClaim);
+        console.log("\nTotally claimed", totalClaim);
     }
     process.exit();
 }
@@ -1182,7 +1194,7 @@ async function main() {
             logMain("Done status.");
             process.exit();
         }
-        if (Number.isInteger(args[0])) {
+        if (!isNaN(args[0])) {
             startBlock = parseInt(args[0]);
         }
         if (syncInterval === 0) {
