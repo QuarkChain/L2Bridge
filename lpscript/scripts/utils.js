@@ -40,8 +40,8 @@ function reviver(key, value) {
     return value;
 }
 
-const saveStatus = (blockSrc, claimedCountStatus) => {
-    const storage = { blockSrc };
+const saveStatus = (blockSrc, lastBlock, lastCount, claimedCountStatus) => {
+    const storage = { blockSrc, lastBlock, lastCount };
     storage.syncs = JSON.parse(JSON.stringify(claimedCountStatus, replacer));
     fs.writeFileSync(storageFile, JSON.stringify(storage, null, 2), e => {
         if (e) {
@@ -51,10 +51,12 @@ const saveStatus = (blockSrc, claimedCountStatus) => {
 }
 
 const loadStatus = () => {
-    let processedBlockSrc;
+    let processedBlockSrc, lastSearchedBlock, lastSearchedCount;
     let claimedCountStatus = new Map();
     if (fs.existsSync(storageFile)) {
-        const { blockSrc, syncs } = require(storageFile);
+        const { blockSrc, lastBlock, lastCount, syncs } = require(storageFile);
+        lastSearchedBlock = lastBlock;
+        lastSearchedCount = lastCount;
         processedBlockSrc = blockSrc;
         claimedCountStatus = JSON.parse(JSON.stringify(syncs, replacer), reviver);
     } else {
@@ -63,7 +65,7 @@ const loadStatus = () => {
             fs.mkdirSync(dir, { recursive: true });
         }
     }
-    return { processedBlockSrc, claimedCountStatus }
+    return { processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus }
 }
 
 async function tokenPrice(tokenAddress) {
@@ -79,7 +81,7 @@ async function tokenPrice(tokenAddress) {
             return price;
         }
     } catch (e) {
-        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : e);
+        logClaim(`get token price failed`, tokenAddress, e.code ? e.code : '');
     }
     return cachePrices[tokenAddress] || 1;
 }
@@ -98,32 +100,17 @@ async function fastGasPrice() {
         return cacheGasPrice;
     }
 }
+const readline = require('readline');
 
-class NonceManager {
-    constructor(startNonce) {
-        this.nonceOffset = 0;
-        // this.provider = signer.provider;
-        // this.address = signer.address;
-        this.baseNonce = startNonce;
-    }
-
-    // async baseNonce() {
-    //     return await this.provider.getTransactionCount(this.address);
-    // }
-
-    getNonce() {
-        // const nonce = this.baseNonce.then((nonce) => {
-        //     console.log("baseNonce called")
-        //     return (nonce + (this.nonceOffset++));
-        // });
-        console.log('nonceOffset', this.nonceOffset)
-        const nonce = this.baseNonce + (this.nonceOffset++);
-        return nonce;
-        // const bn =   this.baseNonce();
-        // const nonce = bn + this.nonceOffset++;
-        // console.log("baseNonce", bn, "offset", this.nonceOffset, "nonce", nonce)
-        // return nonce;
-    }
+function ask(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+    return new Promise(resolve => rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+    }))
 }
 
-module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, NonceManager };
+module.exports = { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, ask };

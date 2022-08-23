@@ -1,11 +1,10 @@
 {
-  "name": "backend",
+  "name": "lpscript",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "node scripts/index.js -sync",
-    "claim": "node scripts/index.js",
+    "start": "node scripts/index.js",
     "sync": "node scripts/index.js sync",
     "status": "node scripts/index.js status"
   },

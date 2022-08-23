@@ -1,94 +1,101 @@
 {
- "4": {
-  "tokens": [
-   {
-    "name": "LINK",
-    "Optimism": "0x1cC8d6d2f14ac432605558A30461ebF501EaE427",
-    "Arbitrum": "0x615fBe6372676474d9e6933d310469c9b68e9726"
-   }
-  ],
-  "O2A": {
-   "genesisSrc": 160343,
-   "genesisDst": 13882441,
-   "bridge": "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
-   "bridgeArgs": [
-    "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
-    "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
-   ],
-   "bridgeSrc": "0x710fd5cfC7bAa09fB2A10dCc8AEEdF19feBe11DD",
-   "bridgeSrcArgs": [
-    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF"
-   ],
-   "bridgeDest": "0xCe993AD2144be3684180E5836a38aEDAb1B03932",
-   "bridgeDestArgs": [
-    "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
-    100
-   ]
-  },
-  "A2O": {
-   "genesisSrc": 13889147,
-   "genesisDst": 160656,
-   "bridge": "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
-   "bridgeArgs": [
-    "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
-    "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
-   ],
-   "bridgeSrc": "0xc4685f7a059BEdDCd1D1AB5c511e2aDCEa7c5059",
-   "bridgeSrcArgs": [
-    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb"
-   ],
-   "bridgeDest": "0xc308d071f6a4D19e6B1BEd44008EB655498Aa675",
-   "bridgeDestArgs": [
-    "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
-    100
-   ]
-  }
- },
- "5": {
-  "tokens": [
-   {
-    "name": "TEST",
-    "decimal": 18,
-    "L1": "0x514910771af9ca656af840dff83e8264ecf986ca",
-    "Optimism": "0x5988BF57bada5Ac355c5f49C5ba1215790556057",
-    "Arbitrum": "0xc9804b8A2452DDBAD4F6c83fF4855dAd8556E325"
-   }
-  ],
-  "O2A": {
-   "genesisSrc": 363262,
-   "genesisDst": 95212,
-   "bridge": "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
-   "bridgeArgs": [
-    "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
-    "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
-   ],
-   "bridgeSrc": "0x7b1E1ECf3BCd2Bf16eECdDaAc43316813d2d9777",
-   "bridgeSrcArgs": [
-    "0x4fbA256CDeB495a9eeE4b18001B940a174500558"
-   ],
-   "bridgeDest": "0x04b820431E02fA97De8d6B7d639fFbA300A8617E",
-   "bridgeDestArgs": [
-    "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
-    100
-   ]
-  },
-  "A2O": {
-   "genesisSrc": 95209,
-   "genesisDst": 363226,
-   "bridge": "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
-   "bridgeArgs": [
-    "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
-    "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
-   ],
-   "bridgeSrc": "0xa8C38635D73AF4E36598d062D971296DBD577a24",
-   "bridgeSrcArgs": [
-    "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b"
-   ],
-   "bridgeDest": "0xb4b6FC1F5Eb3822E3cAA14960646CDd63AB2cDDA",
-   "bridgeDestArgs": [
-    "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
-    100
-   ]
-  }
- }
+    "4": {
+        "tokens": [
+            {
+                "name": "LINK",
+                "Optimism": "0x1cC8d6d2f14ac432605558A30461ebF501EaE427",
+                "Arbitrum": "0x615fBe6372676474d9e6933d310469c9b68e9726"
+            }
+        ],
+        "O2A": {
+            "genesisSrc": 160343,
+            "genesisDst": 13882441,
+            "bridge": "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
+            "bridgeArgs": [
+                "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
+                "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
+            ],
+            "bridgeSrc": "0x710fd5cfC7bAa09fB2A10dCc8AEEdF19feBe11DD",
+            "bridgeSrcArgs": [
+                "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF"
+            ],
+            "bridgeDest": "0xCe993AD2144be3684180E5836a38aEDAb1B03932",
+            "bridgeDestArgs": [
+                "0x1E829CbD0846dD68fb9cFF681f237d00B7B40dAF",
+                100
+            ]
+        },
+        "A2O": {
+            "genesisSrc": 13889147,
+            "genesisDst": 160656,
+            "bridge": "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
+            "bridgeArgs": [
+                "0xF10EEfC14eB5b7885Ea9F7A631a21c7a82cf5D76",
+                "0x578BAde599406A8fE3d24Fd7f7211c0911F5B29e"
+            ],
+            "bridgeSrc": "0xc4685f7a059BEdDCd1D1AB5c511e2aDCEa7c5059",
+            "bridgeSrcArgs": [
+                "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb"
+            ],
+            "bridgeDest": "0xc308d071f6a4D19e6B1BEd44008EB655498Aa675",
+            "bridgeDestArgs": [
+                "0xC4Ad9a23E5d3cB114B308622365689A1814B1FCb",
+                100
+            ]
+        }
+    },
+    "5": {
+        "tokens": [
+            {
+                "name": "USDT",
+                "decimal": 18,
+                "L1": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+                "Optimism": "0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB",
+                "Arbitrum": "0x3D21CEd9E5F2CA9393AF09897F0c43fa4d2B4a34"
+            },
+            {
+                "name": "USDC",
+                "decimal": 18,
+                "L1": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "Optimism": "0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a",
+                "Arbitrum": "0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff"
+            }
+        ],
+        "O2A": {
+            "genesisSrc": 363262,
+            "genesisDst": 95212,
+            "bridge": "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
+            "bridgeArgs": [
+                "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
+                "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
+            ],
+            "bridgeSrc": "0x7b1E1ECf3BCd2Bf16eECdDaAc43316813d2d9777",
+            "bridgeSrcArgs": [
+                "0x4fbA256CDeB495a9eeE4b18001B940a174500558"
+            ],
+            "bridgeDest": "0x04b820431E02fA97De8d6B7d639fFbA300A8617E",
+            "bridgeDestArgs": [
+                "0x4fbA256CDeB495a9eeE4b18001B940a174500558",
+                100
+            ]
+        },
+        "A2O": {
+            "genesisSrc": 95209,
+            "genesisDst": 363226,
+            "bridge": "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
+            "bridgeArgs": [
+                "0x5086d1eEF304eb5284A0f6720f79403b4e9bE294",
+                "0x6BEbC4925716945D46F0Ec336D5C2564F419682C"
+            ],
+            "bridgeSrc": "0xa8C38635D73AF4E36598d062D971296DBD577a24",
+            "bridgeSrcArgs": [
+                "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b"
+            ],
+            "bridgeDest": "0xb4b6FC1F5Eb3822E3cAA14960646CDd63AB2cDDA",
+            "bridgeDestArgs": [
+                "0xB1F6E4F8C8c9D2AEd911bc355E3e442B0d8d6B7b",
+                100
+            ]
+        }
+    }
 }

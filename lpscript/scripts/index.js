@@ -6,12 +6,13 @@ const { L1ToL2MessageGasEstimator } = require('@arbitrum/sdk/dist/lib/message/L1
 const { hexDataLength } = require('@ethersproject/bytes');
 const { NonceManager } = require("@ethersproject/experimental");
 require("dotenv").config();
-const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice } = require("./utils");
+const { logMain, logClaim, logSync, logWithdraw, err, saveStatus, loadStatus, tokenPrice, ask } = require("./utils");
 
-const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1,
+const { DEPLOYMENTS, PRIVATE_KEY, RPC_L1, RPC_OP, RPC_AB, L1_CHAIN_ID, DIRECTION, MIN_LP_FEE, MAX_FEE_PER_GAS_L1, SYNC_INTERVAL,
     MAX_PRIORITY_FEE_AB_CLAIM, GAS_PRICE_MULTIPLIER_OP_CLAIM, MAX_FEE_PER_GAS_AB, GAS_PRICE_OP, CLAIM_INTERVAL, CLAIM_TIME_BUFFER } = process.env;
 const deployment = require(DEPLOYMENTS);
 const claimInterval = CLAIM_INTERVAL * 1000;
+const syncInterval = SYNC_INTERVAL * 1000;
 if (DIRECTION !== "O2A" && DIRECTION !== "A2O") {
     throw "Supported DIRETION: 'O2A' or 'A2O'";
 }
@@ -74,19 +75,21 @@ const opL1Messenger = new sdk.CrossChainMessenger({
 
 let claimedCountStatus;
 let processedBlockSrc;
+let lastSearchedBlock;
+let lastSearchedCount;
 
 let balances = {};
 
 let totalClaim = 0;
 
-async function traceDeposit(fromBlock, sync) {
+async function traceDeposit(fromBlock) {
     let toBlock;
     try {
         let transferData = [];
         toBlock = await srcProvider.getBlockNumber();
         if (toBlock >= fromBlock) {
             const res = await srcContract.queryFilter(srcContract.filters.Deposit(), fromBlock, toBlock);
-            logClaim(`from ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
+            logClaim(`from block ${fromBlock} to ${toBlock} has ${res.length} Deposits`);
             transferData = res.map(r => r.args).map(a => [...a.slice(0, 2), ...a.slice(3)]);
         }
         for (let i = 0; i < transferData.length; i++) {
@@ -100,20 +103,21 @@ async function traceDeposit(fromBlock, sync) {
                 const timeout = transferData[i][5] * 1000 - Date.now();
                 logClaim(`the deposit is not started; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
-                    takeOrder(transferData[i], sync);
+                    takeOrder(transferData[i]);
                 }, timeout);
                 continue;
             }
-            await takeOrder(transferData[i], sync);
+            await takeOrder(transferData[i]);
         }
     } catch (e) {
         err("claim", e.code ? "**" + e.code + "**" : e);
     }
     processedBlockSrc = toBlock;
-    setTimeout(() => traceDeposit(toBlock + 1, sync), claimInterval);
+    save();
+    setTimeout(() => traceDeposit(toBlock + 1), claimInterval);
 }
 
-async function takeOrder(transferData, sync) {
+async function takeOrder(transferData) {
     const transferDataHash = utils.keccak256(
         utils.defaultAbiCoder.encode([
             "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256)"],
@@ -127,10 +131,10 @@ async function takeOrder(transferData, sync) {
             logClaimKey("already bought");
             return;
         }
-        const balance = await getBalance(transferData[0], srcSigner);
+        const balance = await getBalance(transferData[1], dstSigner);
         logClaimKey(`balance of ${name}: ${utils.formatUnits(balance, decimal)}`)
-        if (balance.lt(transferData[3])) {
-            throw `INSUFFICIENT BALANCE of token ${name}`;
+        if (balance === 0 || balance.lt(transferData[3])) {
+            throw `**INSUFFICIENT BALANCE** of token ${name}`;
         }
         if (BigNumber.from(transferData[4]).isZero()) {
             logClaimKey("no LP fee");
@@ -151,7 +155,7 @@ async function takeOrder(transferData, sync) {
             if (timeout > 0) {
                 logClaimKey(`skip for now due to low LP fee; will retry in ${timeout / 1000} seconds`);
                 setTimeout(() => {
-                    takeOrder(transferData, sync);
+                    takeOrder(transferData);
                 }, timeout);
             }
             return;
@@ -161,7 +165,8 @@ async function takeOrder(transferData, sync) {
         const count = await take(transferData, key);
         if (count > 0) {
             claimedCountStatus.set(count, { token: name, amount: utils.formatUnits(transferData[3], decimal), status: 'claimed' });
-            if (sync) {
+            save();
+            if (syncInterval === 0) {
                 const txHash = await declare(count);
                 if (txHash) {
                     const item = claimedCountStatus.get(count);
@@ -189,7 +194,7 @@ async function take(transferData, key) {
             let maxPriorityFeePerGas = maxPriorityFeePerGasDefault;
             if (MAX_PRIORITY_FEE_AB_CLAIM > -1) {
                 const maxPriorityFeePerGasSet = utils.parseUnits(String(MAX_PRIORITY_FEE_AB_CLAIM), "gwei");
-                console.log(`maxPriorityFeePerGas set ${MAX_PRIORITY_FEE_AB_CLAIM}, maxPriorityFeePerGas default ${utils.formatUnits(maxPriorityFeePerGasDefault, "gwei")}`)
+                logClaim(`maxPriorityFeePerGas set ${MAX_PRIORITY_FEE_AB_CLAIM}, maxPriorityFeePerGas default ${utils.formatUnits(maxPriorityFeePerGasDefault, "gwei")}`)
                 if (maxPriorityFeePerGasSet.gt(maxPriorityFeePerGasDefault)) {
                     maxPriorityFeePerGas = maxPriorityFeePerGasSet;
                 }
@@ -222,7 +227,16 @@ async function take(transferData, key) {
             err("claim", `key=${key} tx failed:`, tx.hash);
         }
     } catch (e) {
-        err("claim", `key=${key}`, e);
+        if (e.body) {
+            const { error } = JSON.parse(e.body);
+            err("claim", `key=${key}`, error.message);
+        } else
+            if (e.reason) {
+                err("claim", `key=${key}`, e.reason);
+            }
+            else {
+                err("claim", `key=${key}`, e);
+            }
     }
     return 0;
 }
@@ -249,12 +263,55 @@ function findTokenByL2Address(l2Addr) {
     throw "Cannot find token " + l2Addr;
 }
 
+async function syncLatestClaimed() {
+    logSync("start syncing latest claimed count");
+    const unsynced = [];
+    for (const k of claimedCountStatus.keys()) {
+        if (claimedCountStatus.get(k).status === "claimed") {
+            unsynced.push(k);
+        }
+    }
+    if (unsynced.length === 0) {
+        logSync(`no claims to sync; will check again in ${syncInterval / 1000} seconds`);
+    } else {
+        let count;
+        try {
+            const latestCount = await dstContract.transferCount();
+            count = latestCount.toNumber();
+        } catch (e) {
+            err('sync', "transferCount error", e.code);
+        }
+        if (count > 0) {
+            const txHash = await declare(count);
+            if (txHash) {
+                let item = claimedCountStatus.get(count); // could be other LP's count
+                if (!item) {
+                    item = {};
+                    claimedCountStatus.set(count, item);
+                    unsynced.push(count);
+                }
+                for (const k of unsynced) {
+                    const item = claimedCountStatus.get(k);
+                    item.status = 'declared';
+                    item.tx = txHash;
+                    item.time = Date.now();
+                }
+                save();
+                passingHash(count);
+            }
+        }
+    }
+    setTimeout(() => syncLatestClaimed(), syncInterval);
+}
+
 async function declare(count) {
-    logSync("declare for count", String(count));
+    const logSyncCount = (...msg) => logSync(`count=${count}`, ...msg);
+    logSyncCount("start declare");
     let tx;
+    let gasPrice;
     if (DIRECTION === "A2O") {
         try {
-            let gasPrice = await srcProvider.getGasPrice();
+            gasPrice = await srcProvider.getGasPrice();
             if (GAS_PRICE_OP > 0) {
                 let gasPriceCeil = utils.parseUnits(GAS_PRICE_OP, "gwei");
                 if (gasPrice.gt(gasPriceCeil)) {
@@ -264,7 +321,7 @@ async function declare(count) {
             const maxGas = 1000000;
             tx = await dstContract.declareNewHashChainHeadToArbi(count, maxGas, { gasPrice });
         } catch (e) {
-            err('sync', `count=${count} declareNewHashChainHeadToArbi`);
+            err('sync', `count=${count} declareNewHashChainHeadToArbi error`);
             return null;
         }
     } else {
@@ -283,8 +340,15 @@ async function declare(count) {
     if (tx) {
         const receipt = await tx.wait();
         if (receipt.status == 1) {
+            let cost;
+            if (receipt.effectiveGasPrice) {
+                cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
+            } else {
+                cost = receipt.gasUsed.mul(gasPrice);
+            }
+            logSyncCount(`declared successfully costs ${utils.formatEther(cost)} ether`);
             const chainHead = `0x${receipt.events[1].data.slice(-64)}`;
-            logSync("chainHead", chainHead);
+            logSyncCount("chainHead", chainHead);
             return tx.hash;
         }
     }
@@ -320,6 +384,8 @@ async function passingHash(count) {
             if (await waitSyncedToL2(count)) {
                 await processWithdraw(count);
             }
+        } else {
+            claimedCountStatus.get(count).status = "triggerFailed";
         }
     } else {
         if (await triggerL1MsgOptimism(count)) {
@@ -334,6 +400,8 @@ async function passingHash(count) {
                     await processWithdraw(count);
                 }
             }
+        } else {
+            claimedCountStatus.get(count).status = "triggerFailed";
         }
     }
 }
@@ -357,7 +425,7 @@ async function triggerL1MsgOptimism(count) {
     while (true) {
         try {
             const state = await opL1Messenger.getMessageStatus(txHash);
-            logSyncCount(`OP status=${state}; expected: ${sdk.MessageStatus.READY_FOR_RELAY}`);
+            logSyncCount(`OP status=${sdk.MessageStatus[state]}; expected: ${sdk.MessageStatus[sdk.MessageStatus.READY_FOR_RELAY]}`);
             if (state === sdk.MessageStatus.RELAYED) {
                 logSyncCount(`relayed`);
                 break;
@@ -374,16 +442,23 @@ async function triggerL1MsgOptimism(count) {
     logSyncCount("start finalizing");
     let tx;
     try {
+        const gasEst = await opL1Messenger.estimateGas.finalizeMessage(txHash);
         if (MAX_FEE_PER_GAS_L1 > 0) {
-            tx = await opL1Messenger.finalizeMessage(txHash, { maxFeePerGas: MAX_FEE_PER_GAS_L1 });
+            const maxFeePerGas = utils.parseUnits(MAX_FEE_PER_GAS_L1, "gwei");
+            const cost = gasEst.mul(maxFeePerGas);
+            logSyncCount(`finalize using MAX_FEE_PER_GAS_L1 (${MAX_FEE_PER_GAS_L1} gwei) estimated cost ${utils.formatEther(cost)} ether`)
+            tx = await opL1Messenger.finalizeMessage(txHash, { maxFeePerGas });
         } else {
+            const { maxFeePerGas } = await l1Provider.getFeeData();
+            const cost = gasEst.mul(maxFeePerGas);
+            logSyncCount(`finalize using default maxFeePerGas ${maxFeePerGas} estimated cost ${utils.formatEther(cost)} ether`)
             tx = await opL1Messenger.finalizeMessage(txHash);
         }
         if (tx) {
             const receipt = await tx.wait();
             if (receipt.status == 1) {
                 const cost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-                logSyncCount(`relay message successfully with cost of ${utils.formatEther(cost)} ether`);
+                logSyncCount(`relay message successfully with cost of ${utils.formatEther(cost)} ether, effective gas price ${utils.formatUnits(receipt.effectiveGasPrice, "gwei")} gwei`);
                 claimedCountStatus.get(count).status = "triggered";
                 save();
                 return true;
@@ -484,7 +559,7 @@ async function processWithdraw(count) {
 
 async function doWithdraw(fromCount, toCount) {
     logWithdraw(`do withdraw from ${fromCount} to ${toCount}`);
-    const rewardDataList = await retrieveRewardData(fromCount, toCount);
+    const { result: rewardDataList, searchedBlock } = await retrieveRewardData(fromCount, toCount);
     let tx;
     try {
         if (rewardDataList.length === 0) {
@@ -522,6 +597,9 @@ async function doWithdraw(fromCount, toCount) {
                     claimedCountStatus.delete(i);
                     save();
                 }
+                lastSearchedBlock = searchedBlock;
+                lastSearchedCount = toCount;
+                save();
                 return true;
             }
             err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔 tx: ${tx.hash}`);
@@ -537,7 +615,7 @@ async function doWithdraw(fromCount, toCount) {
             else {
                 err("withdraw", e)
             }
-    } 
+    }
     err("withdraw", `withdraw ${toCount - fromCount + 1} deposits (${fromCount} to ${toCount}) failed 🤔`);
     return false;
 }
@@ -599,7 +677,7 @@ async function updateHashToArbitrumFromL1(count) {
             if (MAX_FEE_PER_GAS_L1 > 0) {
                 const maxFeePerGas = utils.parseUnits(MAX_FEE_PER_GAS_L1, "gwei");
                 const cost = maxFeePerGas.mul(gasEst);
-                logSyncCount(`setChainHashInL2 estimated cost at most: ${utils.formatEther(cost)} ether`);
+                logSyncCount(`setChainHashInL2 using MAX_FEE_PER_GAS_L1 (${MAX_FEE_PER_GAS_L1} gwei) estimated cost at most: ${utils.formatEther(cost)} ether`);
                 setTx = await l1Contract.setChainHashInL2(
                     count,
                     submissionPriceWei,
@@ -608,7 +686,9 @@ async function updateHashToArbitrumFromL1(count) {
                     { value: callValue, maxFeePerGas }
                 );
             } else {
-                const cost = gasPriceL1.mul(gasEst);
+                const { maxFeePerGas } = await l1Provider.getFeeData();
+                console.log("maxFeePerGas=" + maxFeePerGas)
+                const cost = maxFeePerGas.mul(gasEst);
                 logSyncCount(`setChainHashInL2 estimated cost at most: ${utils.formatEther(cost)} ether`);
                 setTx = await l1Contract.setChainHashInL2(
                     count,
@@ -619,7 +699,7 @@ async function updateHashToArbitrumFromL1(count) {
                 );
             }
         } catch (e) {
-            logSyncCount(`setChainHashInL2 failed.`, e.code ? "**" + e.code + "**" : e);
+            logSyncCount(`setChainHashInL2 failed.`, e);
             claimedCountStatus.get(count).status = "l1ToL2SetChainHashInL2Failed";
             save();
             return false;
@@ -630,6 +710,7 @@ async function updateHashToArbitrumFromL1(count) {
             item.status = "l1ToL2Called";
             item.setTx = setTx.hash;
             save();
+            console.log("effectiveGasPrice=" + setRec.effectiveGasPrice)
             if (setRec.effectiveGasPrice) {
                 const cost = setRec.gasUsed.mul(setRec.effectiveGasPrice);
                 logSyncCount(`setChainHashInL2 successfully on L1 with cost of ${utils.formatEther(cost)} ether`);
@@ -638,7 +719,7 @@ async function updateHashToArbitrumFromL1(count) {
             }
             const l1TxReceipt = new L1TransactionReceipt(setRec);
             const message = (await l1TxReceipt.getL1ToL2Messages(srcNonceManager))[0];
-            logSyncCount("start waiting for status");
+            logSyncCount("start waiting for redeem to Arbitrum");
             for (let i = 0; i < 3; i++) {
                 let result;
                 try {
@@ -648,7 +729,7 @@ async function updateHashToArbitrumFromL1(count) {
                     const status = await message.status();
                     result = { status };
                 }
-                logSyncCount("status", result.status);
+                logSyncCount("status", L1ToL2MessageStatus[result.status]);
                 if (result.status === L1ToL2MessageStatus.REDEEMED) {
                     logSyncCount(`L2 retryable txn executed`);
                     claimedCountStatus.get(count).status = "l1ToL2Redeemed";
@@ -689,7 +770,7 @@ async function redeemRetryableTicket(count, message) {
     }
     const status = await message.status();
     if (status === L1ToL2MessageStatus.REDEEMED) {
-        logSyncCount(`L2 retryable txn executed ${message.l2TxHash}`);
+        logSyncCount(`Already redeemed.`);
         claimedCountStatus.get(count).status = "l1ToL2Redeemed";
         save();
         return true;
@@ -770,22 +851,27 @@ async function syncCount(count) {
         logSyncCount("already withdrawn");
         return;
     }
+    let item = claimedCountStatus.get(count);
+    if (!item) {
+        const answer = await ask(`Count ${count} does not seem initialized locally, and could be managed by others. Continue (y/n)?`);
+        if (answer !== 'y') {
+            return;
+        }
+    }
     if (await checkSyncResult(count)) {
         logSyncCount("already synced to src");
         await processWithdraw(count);
         return;
     }
-    let item = claimedCountStatus.get(count);
     if (await knownHashOnionsL1(count)) {
         logSyncCount("already synced to L1");
-        // A2O only
-        if (item && (item.status === "l1ToL2RedeemFailed" || item.status === "l1ToL2Called")) {
-            if (!await redeemRetryableTicket(count)) {
-                err("sync", `count=${count} updateHashToArbitrumFromL1 failed.`);
-                return;
+        if (DIRECTION === "A2O" && item && item.status !== "l1ToL2Redeemed") {
+            if (item && (item.status === "l1ToL2RedeemFailed" || item.status === "l1ToL2Called")) {
+                if (!await redeemRetryableTicket(count)) {
+                    err("sync", `count=${count} redeemRetryableTicket failed.`);
+                    return;
+                }
             }
-        }
-        if (item && item.status === "l1ToL2SetChainHashInL2Failed") {
             if (!await updateHashToArbitrumFromL1(count)) {
                 err("sync", `count=${count} updateHashToArbitrumFromL1 failed.`);
                 return;
@@ -811,6 +897,7 @@ async function syncCount(count) {
         }
         if (await waitSyncedToL2(count)) {
             await processWithdraw(count);
+            return;
         }
     }
     if (item && item.tx) {
@@ -819,13 +906,13 @@ async function syncCount(count) {
     }
     const [gap, transferCount] = await Promise.all([dstContract.GAP(), dstContract.transferCount()]);
     if (count != transferCount && count % gap != 0) {
-        logSyncCount("skip sync: hash will not be found on dst; you can sync latest count:", String(transferCount));
+        logSyncCount("skip sync: cannot declare because hash will not be found on dst");
         return;
     }
     const txHash = await declare(count);
     logSyncCount("sync hash from dst chain.");
     if (txHash) {
-        claimedCountStatus.set(count, { tx: txHash, time: Date.now() });
+        claimedCountStatus.set(count, { status: "declared", tx: txHash, time: Date.now() });
         await passingHash(count);
     }
 }
@@ -837,7 +924,7 @@ async function checkCountStatus(count) {
         if (status === "claimed") {
             return `dst: claimed`;
         }
-        if (status === "triggered") {
+        if (status === "triggered" || status === "triggerFailed") {
             return `dst => L1: ${status}`;
         }
         if (status === "declared") {
@@ -847,10 +934,10 @@ async function checkCountStatus(count) {
                     return `dst => L1: in challenge period, waiting for ${delay / 1000 / 3600} hours to trigger on L1`;
                 }
             }
-            return `dst => L1: challenge period end, waiting for status change`;
+            return `dst => L1: challenge period end, waiting for status change to trigger`;
         }
         // A2O only
-        if (status.startsWith("l1ToL2")) {
+        if (status && status.startsWith("l1ToL2")) {
             return `L1 => src: ${status}`;
         }
         return status;
@@ -871,20 +958,25 @@ async function retrieveRewardData(fromCount, toCount) {
     logWithdraw(`start searching on chain for rewardData from ${fromCount} to ${toCount}`);
     const total = toCount - fromCount + 1;
     let result = [];
-    let fromBlock = genesisBlockDst;
-    let i = 0;
+    let fromBlock = lastSearchedBlock ? lastSearchedBlock : genesisBlockDst;
+    let i = lastSearchedCount ? lastSearchedCount : 0;
+    let searchedBlock = lastSearchedBlock;
     try {
         const curBlock = await dstProvider.getBlockNumber();
         out: while (true) {
             const toBlock = Math.min(curBlock, fromBlock + 5000);
             const res = await dstContract.queryFilter(dstContract.filters.Claim(), fromBlock, toBlock);
-            logWithdraw(`from ${fromBlock} to ${toBlock} has ${res.length} Claims`);
+            if (res.length > 0) {
+                logWithdraw(`from block ${fromBlock} to ${toBlock} has ${res.length} Claims`);
+            }
             for (r of res) {
                 i = i + 1;
-                if (i >= fromCount && i <= toCount) {
+                const countInEvent = r.args[4];
+                if (countInEvent >= fromCount && countInEvent <= toCount) {
                     result.push(r.args.slice(0, 4));
-                    logWithdraw(`add rewardData count=${i} on block ${r.blockNumber}`);
+                    logWithdraw(`add rewardData count=${countInEvent} on block ${r.blockNumber}`);
                     if (result.length === total) {
+                        searchedBlock = r.blockNumber;
                         break out;
                     }
                 }
@@ -897,7 +989,7 @@ async function retrieveRewardData(fromCount, toCount) {
     } catch (e) {
         err("withdraw", "query Claim events failed:", e.code ? "**" + e.code + "**" : e);
     }
-    return result;
+    return { result, searchedBlock };
 }
 
 async function syncPendings() {
@@ -914,7 +1006,7 @@ async function approve() {
         const erc20Token = new Contract(t, [
             "function allowance(address, address) public view returns (uint256)",
             "function approve(address,uint256) public",
-        ], dstSigner);
+        ], dstNonceManager);
         const allowed = await erc20Token.allowance(dstSigner.address, dstAddress);
         if (allowed.isZero()) {
             await erc20Token.approve(dstAddress, constants.MaxUint256);
@@ -929,17 +1021,15 @@ async function exitHandler() {
         return;
     }
     exiting = true;
-    if (claimedCountStatus) {
-        saveStatus(processedBlockSrc, claimedCountStatus);
-    }
+    save();
     if (!(process.argv.length > 2 && (process.argv[2] === "status" || process.argv[2] === "sync"))) {
-        console.log("\ntotal claimed", totalClaim);
+        console.log("\nTotally claimed", totalClaim);
     }
     process.exit();
 }
 
 function save() {
-    saveStatus(processedBlockSrc, claimedCountStatus);
+    saveStatus(processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus);
 }
 
 async function queryBalances() {
@@ -950,14 +1040,15 @@ async function queryBalances() {
             const l1Addr = t.L1;
             const srcAddr = DIRECTION === "O2A" ? t.Optimism : t.Arbitrum;
             const dstAddr = DIRECTION === "O2A" ? t.Arbitrum : t.Optimism;
-            promises.push(getBalance(l1Addr, l1Signer));
+            // promises.push(getBalance(l1Addr, l1Signer));
             promises.push(getBalance(srcAddr, srcSigner));
             promises.push(getBalance(dstAddr, dstSigner));
         }
         const result = await Promise.all(promises);
         bals.ETH = result.slice(0, 3);
-        for (let t of tokens) {
-            bals[t.name] = result.slice(3);
+        const tokenPrices = result.slice(3);
+        for (let i = 0; i < tokens.length; i++) {
+            bals[tokens[i].name] = tokenPrices.slice(i * 2, i * 2 + 2);
         }
     } catch (e) {
         console.log("query balances error", e);
@@ -967,13 +1058,13 @@ async function queryBalances() {
 
 async function getBalance(tokenAddr, signer) {
     try {
-        const erc20Token = new ethers.Contract(tokenAddr, [
+        const erc20Token = new Contract(tokenAddr, [
             "function balanceOf(address) public view returns (uint256)"
         ], signer);
         const balance = await erc20Token.balanceOf(signer.address);
         return balance;
     } catch (e) {
-        err(`cannot get balance of ${tokenAddr}`);
+        err("main", `cannot get balance of ${tokenAddr}`, e);
         // throw `cannot get balance of ${tokenAddr}`;
         return 0;
     }
@@ -1014,9 +1105,9 @@ async function printBalances() {
     console.log("--------------------------------------------------------")
     console.log(`ETH:\t${utils.formatEther(srce)}\t${utils.formatEther(dste)}\t${utils.formatEther(l1e)}\t${utils.formatEther(l1e.add(srce).add(dste))}`);
     for (let t of tokens) {
-        const [l1, src, dst] = newBals[t.name];
+        const [src, dst] = newBals[t.name];
         const fmt = (v) => utils.formatUnits(v, t.decimal);
-        console.log(`${t.name}:\t${fmt(src)}\t${fmt(dst)}\t${fmt(l1)}\t${fmt(src.add(dst).add(l1))}`);
+        console.log(`${t.name}:\t${fmt(src)}\t${fmt(dst)}\t--\t${fmt(src.add(dst))}`);
     }
     console.log("========================================================")
 }
@@ -1024,7 +1115,8 @@ async function printBalances() {
 async function main() {
     logMain(`Starting LP services for L2Bridge 
                           ${DIRECTION === 'O2A' ? '(Optimism => Arbitrum)' : '(Arbitrum => Optimism)'},
-                          L1 chainId = ${L1_CHAIN_ID}`)
+                          L1 chainId = ${L1_CHAIN_ID}`);
+    logMain(`LP signer address ${l1Signer.address}`);
     process.stdin.resume();
     //do something when app is closing
     process.on('exit', async () => { await exitHandler() });
@@ -1034,11 +1126,10 @@ async function main() {
         console.error(e);
         process.exit(1);
     });
-    ({ processedBlockSrc, claimedCountStatus } = loadStatus());
-    if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "-sync")) {
+    ({ processedBlockSrc, lastSearchedBlock, lastSearchedCount, claimedCountStatus } = loadStatus());
+    if (process.argv.length === 2 || (process.argv.length > 2 && process.argv[2] === "sync")) {
         await approve();
     }
-    let syncFlag = false;
     let startBlock;
     if (process.argv.length > 2) {
         const args = process.argv.slice(2);
@@ -1063,6 +1154,28 @@ async function main() {
             process.exit();
         }
         if (args[0] === "status") {
+            let count;
+            if (args.length > 1) {
+                if (isNaN(args[1])) {
+                    logMain("invalid count", args[1]);
+                    process.exit();
+                }
+                count = parseInt(args[1]);
+                logMain("Status of user specified count", count);
+                if (claimedCountStatus.has(count)) {
+                    const { token, amount } = claimedCountStatus.get(count);
+                    console.log("========================================================")
+                    console.log(`count\tamount\ttoken\tstatus`);
+                    console.log("----------------------------")
+                    const status = await checkCountStatus(c);
+                    console.log(count, `\t${amount}\t${token}\t${status}`);
+                    console.log("========================================================")
+                } else {
+                    console.log(count, await checkCountStatus(count));
+                }
+                logMain("Done status.");
+                process.exit();
+            }
             logMain("Start checking status of your pending claims...");
             const status = new Map();
             for (let c of claimedCountStatus.keys()) {
@@ -1081,14 +1194,21 @@ async function main() {
             logMain("Done status.");
             process.exit();
         }
-        if (args[0] === "-sync") {
-            syncFlag = true;
+        if (!isNaN(args[0])) {
+            startBlock = parseInt(args[0]);
+        }
+        if (syncInterval === 0) {
             syncPendings();
         }
     }
-    startBlock = processedBlockSrc ? processedBlockSrc : genesisBlockSrc;
-    logMain("Staring claiming service from block", startBlock, syncFlag ? "with" : "without", "sync/withdraw");
-    traceDeposit(startBlock, syncFlag);
+    if (!startBlock) {
+        startBlock = processedBlockSrc ? processedBlockSrc : await srcProvider.getBlockNumber();
+    }
+    logMain("Staring claiming service from block", startBlock, syncInterval > -1 ? "with" : "**without**", "sync/withdraw");
+    traceDeposit(startBlock);
+    if (syncInterval > 0) {
+        setTimeout(() => syncLatestClaimed(), syncInterval);
+    }
 }
 
 main().catch((error) => {
