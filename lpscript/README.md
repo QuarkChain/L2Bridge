@@ -1,4 +1,4 @@
-L2Bridge Scripts for Liquidate Providers
+L2Bridge Script for Liquidate Providers
 ====
 
 ## Introduction
@@ -9,16 +9,6 @@ LP script for L2bridge is a handy tool for liquidity providers to run a backgrou
 -  Cost control through gas price configurations
 -  Show status of pending claims and ETH and token balances of current LP account
 
-## Installation
-Node 16 and yarn 1.22 or above are required.
-```sh
-# download
-git clone git@github.com:QuarkChain/L2Bridge.git
-# go to lpscripts
-cd lpscripts
-# install
-yarn
-```
 ## How Does It Work
 The L2Bridge enables users to transfer ERC20 tokens across Ethereum L2 networks without interacting with L1. LPs on the other side, transfer funds to the user on the target L2, and withdraw their funds later from the source L2 contract later after the transfer data hash is passed from target L2 to source L2, which proves their claims.  
 
@@ -59,6 +49,17 @@ The direction can be understood as the fund flow direction from the user's point
 
 ### Supported Tokens
 In the part of the `L1 chain id` / `tokens` in `deployments.json` file, you can add/remove tokens that are supported by the script.
+
+## Installation
+Node 16 and yarn 1.22 or above are required.
+```sh
+# download
+git clone git@github.com:QuarkChain/L2Bridge.git
+# go to lpscript
+cd L2Bridge/lpscript
+# install
+yarn
+```
 ## Configurations
 You will need to create a .env file with the following configurations:
 ```sh
@@ -67,10 +68,10 @@ You will need to create a .env file with the following configurations:
 PRIVATE_KEY="2a84c..."
 # location of the deployments.json.
 DEPLOYMENTS="../../contract/deployments.json"
-# L1 RPC URL, e.g. an Infura link end with your api key
-RPC_L1="https://mainnet.infura.io/v3/${INFURA_API_KEY}"
+# L1 RPC URL, e.g. an Infura link ends with your api key
+RPC_L1="https://mainnet.infura.io/v3/428a..."
 # Arbitrum RPC URL
-RPC_AB="https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY}"
+RPC_AB="https://arbitrum-mainnet.infura.io/v3/428a..."
 # Optimism RPC URL
 RPC_OP="https://mainnet.optimism.io/"
 # the threshold of LP fee to take orders in USD
@@ -137,7 +138,7 @@ If the users' deposit is expired, they can refund their token from the source L2
 ### What should I do to prevent my order from expired?
 First of all, you can choose to take those orders with a validity period long enough. When users deposit, the contract requires an expiration of longer than 8 days. Considering the challenge period is 7 days, when you claim an order that will be expired in 8 days, there is at most 24 hours buffer to handle the hash relay and withdraw transactions, etc. `CLAIM_TIME_BUFFER` in .env allows you to place a safe margin in addition to the challenge period before claiming an order.  
 
-Most importantly, you should start the procedure of relaying the hash head early enough after claiming. One choice is to sync each order automatically as soon as claimed. `SYNC_INTERVAL` plays an important role here. See [more](#how-should-i-manage-the-sync-service) for more detail.    
+Most importantly, you should start the procedure of relaying the hash head early enough after claiming. One choice is to sync each order automatically as soon as claimed. `SYNC_INTERVAL` plays an important role here. See [here](#how-should-i-manage-the-sync-service) for more detail.    
 
 Finally, you'd better keep an eye on the status of your pending orders, and take extra actions if needed. The `yarn status` command is what you need here.
 ### How should I manage the sync service?
@@ -177,3 +178,41 @@ To get a better chance to win the claim bid, you can use the max priority fee or
 
 ### How can I run 2 instances in different directions?
 You can download the code in two different locations, make copies of .env file for each instance, and configure it in different directions. Make sure to use different `PRIVATE_KEY` as LP account to avoid nonce confliction.
+
+
+## Quick Setup for Goerli
+1. Test ETH faucets:
+   - [Gerli](https://goerlifaucet.com)
+   - [Arbitrum](https://twitter.com/intent/tweet?text=ok%20I%20need%20@arbitrum%20to%20give%20me%20Nitro%20testnet%20gas.%20like%20VERY%20SOON.%20I%20cant%20take%20this,%20I%E2%80%99ve%20been%20waiting%20for%20@nitro_devnet%20release.%20I%20just%20want%20to%20start%20developing.%20but%20I%20need%20the%20gas%20IN%20MY%20WALLET%20NOW.%20can%20devs%20DO%20SOMETHING??%20%20SEND%20HERE:%200xAddA0B73Fe69a6E3e7c1072Bb9523105753e08f8)
+   - [Optimism](https://optimismfaucet.xyz/)
+2. Mint test tokens on L2 testnets to your user/LP account: 
+   - Arbitrum [USDT](https://goerli-rollup-explorer.arbitrum.io/address/0x3D21CEd9E5F2CA9393AF09897F0c43fa4d2B4a34/write-contract)
+   - Arbitrum [USDC](https://goerli-rollup-explorer.arbitrum.io/address/0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff/write-contract)
+   - Optimism [USDT](https://blockscout.com/optimism/goerli/address/0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB/write-contract#address-tabs)
+   - Optimism [USDC](https://blockscout.com/optimism/goerli/address/0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a/write-contract#address-tabs)
+3. Get code and install. Check [here](#installation) for detail.
+4. Create a .env file with following content, only replacing `PRIVATE_KEY`, and optionally pick a `DIRECTION` between A2O and O2A.
+    ```sh
+    PRIVATE_KEY="2a84c..."
+    DEPLOYMENTS="../../contract/deployments"
+    RPC_L1="https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
+    RPC_OP="https://goerli.optimism.io/"
+    RPC_AB="https://goerli-rollup.arbitrum.io/rpc/"
+    MAX_FEE_PER_GAS_L1=0
+    MAX_FEE_PER_GAS_AB=0
+    GAS_PRICE_OP=0
+    MAX_PRIORITY_FEE_AB_CLAIM=0
+    GAS_PRICE_MULTIPLIER_OP_CLAIM=100
+    MIN_LP_FEE=0
+    L1_CHAIN_ID=5
+    CLAIM_INTERVAL=30
+    SYNC_INTERVAL=60
+    CLAIM_TIME_BUFFER=68400
+    DIRECTION=A2O
+    ```
+5. Start the service.
+
+    ```sh
+    yarn start
+    ```
+6. Now you can deposit from [the frontend](https://layer2bridge.vercel.app) with user's account. 

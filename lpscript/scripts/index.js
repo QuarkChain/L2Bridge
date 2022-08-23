@@ -762,6 +762,7 @@ async function redeemRetryableTicket(count, message) {
     if (!message) {
         if (!item.setTx) {
             err('sync', `count=${count} cannot find setTx`);
+            item.status = "l1ToL2SetChainHashInL2Failed";
             return false;
         }
         const setRec = await l1Provider.getTransactionReceipt(item.setTx);
@@ -831,6 +832,7 @@ async function knownHashOnionsL1(count) {
         }
     } catch (e) {
         err("sync", "query known hash on L1 failed. ", e.code);
+        return knownHashOnionsL1(count);
     }
     return false;
 }
