@@ -14,8 +14,8 @@ Node 16 and yarn 1.22 or above are required.
 ```sh
 # download
 git clone git@github.com:QuarkChain/L2Bridge.git
-# go to lpscripts
-cd lpscripts
+# go to lpscript
+cd lpscript
 # install
 yarn
 ```
@@ -67,10 +67,10 @@ You will need to create a .env file with the following configurations:
 PRIVATE_KEY="2a84c..."
 # location of the deployments.json.
 DEPLOYMENTS="../../contract/deployments.json"
-# L1 RPC URL, e.g. an Infura link end with your api key
-RPC_L1="https://mainnet.infura.io/v3/${INFURA_API_KEY}"
+# L1 RPC URL, e.g. an Infura link ends with your api key
+RPC_L1="https://mainnet.infura.io/v3/428a..."
 # Arbitrum RPC URL
-RPC_AB="https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY}"
+RPC_AB="https://arbitrum-mainnet.infura.io/v3/428a..."
 # Optimism RPC URL
 RPC_OP="https://mainnet.optimism.io/"
 # the threshold of LP fee to take orders in USD
@@ -177,3 +177,39 @@ To get a better chance to win the claim bid, you can use the max priority fee or
 
 ### How can I run 2 instances in different directions?
 You can download the code in two different locations, make copies of .env file for each instance, and configure it in different directions. Make sure to use different `PRIVATE_KEY` as LP account to avoid nonce confliction.
+
+
+## Quick Setup for Goerli
+1. Get some test ETH on Goerli and the L2s from a faucet (e.g. https://goerlifaucet.com/) if you don't have any. And then you can bridge ETH from Goerli to the L2s through:
+   - Arbitrum bridge: https://bridge.arbitrum.io
+   - Optimism bridge: https://app.optimism.io/bridge
+2. Mint test tokens on L2 testnets to your LP account: 
+   - Arbitrum [USDT](https://goerli-rollup-explorer.arbitrum.io/address/0x3D21CEd9E5F2CA9393AF09897F0c43fa4d2B4a34/write-contract)
+   - Arbitrum [USDC](https://goerli-rollup-explorer.arbitrum.io/address/0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff/write-contract)
+   - Optimism [USDT](https://blockscout.com/optimism/goerli/address/0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB/write-contract#address-tabs)
+   - Optimism [USDC](https://blockscout.com/optimism/goerli/address/0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a/write-contract#address-tabs)
+3. Get code and install. Check [here](#installation) for detail.
+4. Create a .env file with following content, only replacing `PRIVATE_KEY` and infura api key in `RPC_L1`, and optionally pick a `DIRECTION` between A2O and O2A.
+    ```sh
+    PRIVATE_KEY="2a84c..."
+    DEPLOYMENTS="../../contract/deployments"
+    RPC_L1="https://goerli.infura.io/v3/5f85..."
+    RPC_OP="https://goerli.optimism.io/"
+    RPC_AB="https://goerli-rollup.arbitrum.io/rpc/"
+    MAX_FEE_PER_GAS_L1=0
+    MAX_FEE_PER_GAS_AB=0
+    GAS_PRICE_OP=0
+    MAX_PRIORITY_FEE_AB_CLAIM=0
+    GAS_PRICE_MULTIPLIER_OP_CLAIM=100
+    MIN_LP_FEE=0
+    L1_CHAIN_ID=5
+    CLAIM_INTERVAL=30
+    SYNC_INTERVAL=60
+    CLAIM_TIME_BUFFER=68400
+    DIRECTION=A2O
+    ```
+5. Start the service.
+
+    ```sh
+    yarn start
+    ```
