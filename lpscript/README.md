@@ -53,8 +53,8 @@ In the part of the `L1 chain id` / `tokens` in `deployments.json` file, you can 
 ## Installation
 Node 16 and yarn 1.22 or above are required.
 ```sh
-# download
-git clone git@github.com:QuarkChain/L2Bridge.git
+# download code
+git clone https://github.com/QuarkChain/L2Bridge.git
 # go to lpscript
 cd L2Bridge/lpscript
 # install
@@ -173,8 +173,8 @@ Note that if `maxFeePerGas` is lower than `maxPriorityFeePerGas` the transaction
 **Warning:** If there were network congestion and the claim hashes are not relayed to source L2 in time due to low gas price, there are risks that orders would be expired. 
 ### How can I get a better chance to win the claim bid?
 To get a better chance to win the claim bid, you can use the max priority fee or gas price multiplier configuration to boost the gas price used for the claim transaction:  
-- For Arbitrum as the destination chain (O2A), use `MAX_PRIORITY_FEE_AB_CLAIM` to specify the max priority fee (tip) in Gwei
-- For Optimism as the destination chain (A2O), use `GAS_PRICE_MULTIPLIER_OP_CLAIM` which will multiply the real-time gas price.
+- For Arbitrum as the destination chain (`O2A`), use `MAX_PRIORITY_FEE_AB_CLAIM` to specify the max priority fee (tip) in Gwei
+- For Optimism as the destination chain (`A2O`), use `GAS_PRICE_MULTIPLIER_OP_CLAIM` which will multiply the real-time gas price.
 
 ### How can I run 2 instances in different directions?
 You can download the code in two different locations, make copies of .env file for each instance, and configure it in different directions. Make sure to use different `PRIVATE_KEY` as LP account to avoid nonce confliction.
@@ -191,7 +191,7 @@ You can download the code in two different locations, make copies of .env file f
    - Optimism [USDT](https://blockscout.com/optimism/goerli/address/0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB/write-contract#address-tabs)
    - Optimism [USDC](https://blockscout.com/optimism/goerli/address/0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a/write-contract#address-tabs)
 3. Get code and install. Check [here](#installation) for detail.
-4. Create a .env file with following content, only replacing `PRIVATE_KEY`, and optionally pick a `DIRECTION` between A2O and O2A.
+4. Create a .env file with following content, only replacing `PRIVATE_KEY`, and optionally pick a `DIRECTION` between `A2O` and `O2A`.
     ```sh
     PRIVATE_KEY="2a84c..."
     DEPLOYMENTS="../../contract/deployments"
