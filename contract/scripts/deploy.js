@@ -3,11 +3,11 @@ const { providers, Wallet } = ethers;
 const fs = require("fs");
 require("dotenv").config();
 
-const { OP_RPC, AB_RPC, L1_RPC, MESSENGER, INBOX, PRIVATE_KEY } = process.env;
+const { RPC_OP, RPC_AB, RPC_L1, MESSENGER, INBOX, PRIVATE_KEY } = process.env;
 
-const l1Provider = new providers.JsonRpcProvider(L1_RPC)
-const opProvider = new providers.JsonRpcProvider(OP_RPC)
-const abProvider = new providers.JsonRpcProvider(AB_RPC)
+const l1Provider = new providers.JsonRpcProvider(RPC_L1)
+const opProvider = new providers.JsonRpcProvider(RPC_OP)
+const abProvider = new providers.JsonRpcProvider(RPC_AB)
 
 const l1Wallet = new Wallet(PRIVATE_KEY, l1Provider)
 const opWallet = new Wallet(PRIVATE_KEY, opProvider)
@@ -52,21 +52,23 @@ const deploy = async (direction) => {
     const genesisDst = await dstWallet.provider.getBlockNumber()
 
     console.log('Updating L2 bridge addresses to L1Bridge')
-     //L1 Bridge's direction is from DstContract to SrcContract
-    const updateL2SourceTx = await l1Bridge.updateL2Source(dstBridge.address);
+    //L1 Bridge's direction is from DstContract to SrcContract
+    const updateL2SourceTx = await l1Bridge.updateL2MessageFrom(dstBridge.address);
     await updateL2SourceTx.wait();
-    const updateL2TargetTx = await l1Bridge.updateL2Target(srcBridge.address);
+    const updateL2TargetTx = await l1Bridge.updateL2MessageTo(srcBridge.address);
     await updateL2TargetTx.wait();
     console.log(`updated. src=${dstBridge.address}, dst=${srcBridge.address}`);
 
     let cfg = {}
-    cfg[chainId] = {}
     if (fs.existsSync("deployments.json")) {
         try {
             cfg = require("../deployments.json");
         } catch (e) {
             console.log(e)
         }
+    }
+    if (!cfg[chainId]) {
+        cfg[chainId] = {}
     }
     cfg[chainId][direction] = {
         genesisSrc,

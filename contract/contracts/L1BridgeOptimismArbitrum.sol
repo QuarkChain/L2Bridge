@@ -6,8 +6,8 @@ import "./L2BridgeSource.sol";
 import "./optimism/iAbs_BaseCrossDomainMessenger.sol";
 
 contract L1BridgeOptimismArbitrum {
-    address public l2Source;
-    address public l2Target;
+    address public l2MessageFrom;
+    address public l2MessageTo;
     iAbs_BaseCrossDomainMessenger public messenger;
     IInbox public inbox;
 
@@ -21,13 +21,13 @@ contract L1BridgeOptimismArbitrum {
     }
 
     /// @notice only owner can call
-    function updateL2Target(address _l2Target) public {
-        l2Target = _l2Target;
+    function updateL2MessageTo(address _l2MessageTo) public {
+        l2MessageTo = _l2MessageTo;
     }
 
     /// @notice only owner can call
-    function updateL2Source(address _l2Source) public {
-        l2Source = _l2Source;
+    function updateL2MessageFrom(address _l2MessageFrom) public {
+        l2MessageFrom = _l2MessageFrom;
     }
 
     function setChainHashInL2(
@@ -42,7 +42,7 @@ contract L1BridgeOptimismArbitrum {
             knownHashOnions[count]
         );
         uint256 ticketID = inbox.createRetryableTicket{value: msg.value}(
-            l2Target,
+            l2MessageTo,
             0,
             maxSubmissionCost,
             msg.sender,
@@ -51,17 +51,16 @@ contract L1BridgeOptimismArbitrum {
             gasPriceBid,
             data
         );
-
         emit RetryableTicketCreated(ticketID);
         return ticketID;
     }
 
-    /// @notice only l2Source can update
+    /// @notice only l2MessageFrom can update
     function updateChainHash(uint256 count, bytes32 chainHash) public payable {
         require(msg.sender == address(messenger), "not from op messenger");
         address l2Sender = messenger.xDomainMessageSender();
         require(
-            l2Sender == l2Source,
+            l2Sender == l2MessageFrom,
             "receipt root only updateable by target L2"
         );
         knownHashOnions[count] = chainHash;

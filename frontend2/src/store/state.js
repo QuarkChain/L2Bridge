@@ -21,19 +21,19 @@ export const chainInfos = [{
   explorer: ['https://goerli-rollup-explorer.arbitrum.io/'],
   bridge: [
     {
-      src: '0xc5C6e34605e511000C1a0052aA5CD539e869B9e7',
+      src: '0xa8C38635D73AF4E36598d062D971296DBD577a24',
       destChainId: '0x1a4',
       destChainName: 'Optimism',
       destRpc: 'https://goerli.optimism.io/',
-      dest: '0xec45082f8f89e1d6E516aC132D8bC2A78610Ec78',
+      dest: '0xb4b6FC1F5Eb3822E3cAA14960646CDd63AB2cDDA',
     },
   ],
   USDT: {
-    address: "0xE77815fAC07009fD53e34E7F2874f0e781638E50",
+    address: "0x3D21CEd9E5F2CA9393AF09897F0c43fa4d2B4a34",
     decimals: 18,
   },
   USDC: {
-    address: "0x9edd2920723290277BE071AfFF1De9a843451871",
+    address: "0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff",
     decimals: 18,
   },
 },
@@ -44,19 +44,19 @@ export const chainInfos = [{
   explorer: ['https://blockscout.com/optimism/goerli/'],
   bridge: [
     {
-      src: '0xeE214CB2E99cc17A57C4fB71aB436Ad79980a119',
+      src: '0x7b1E1ECf3BCd2Bf16eECdDaAc43316813d2d9777',
       destChainId: '0x66eed',
       destChainName: 'Arbitrum',
       destRpc: 'https://goerli-rollup.arbitrum.io/rpc/',
-      dest: '0x0B1dc39be156539525Cc72B2C54A99F9D43563BF',
+      dest: '0x04b820431E02fA97De8d6B7d639fFbA300A8617E',
     },
   ],
   USDT: {
-    address: "0x466869e807dd3D332D9b034Fa0F0bebE55CFaf82",
+    address: "0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB",
     decimals: 18,
   },
   USDC: {
-    address: "0x93305dE5e4809F37c23f6e5C1EE023110116eD25",
+    address: "0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a",
     decimals: 18,
   },
 },

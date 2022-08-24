@@ -1,37 +1,27 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
+const { ethers } = require('hardhat')
+const { providers, Wallet } = ethers;
+require("dotenv").config();
 
+const { RPC_OP, RPC_AB, PRIVATE_KEY } = process.env;
+
+const opProvider = new providers.JsonRpcProvider(RPC_OP)
+const abProvider = new providers.JsonRpcProvider(RPC_AB)
+
+const opWallet = new Wallet(PRIVATE_KEY, opProvider)
+const abWallet = new Wallet(PRIVATE_KEY, abProvider)
+const amount = ethers.utils.parseEther("100000000")
 async function main() {
-  const provider = ethers.provider;
-  const network = await provider.getNetwork();
-  console.log("Deploying Test Tokens on", network.name);
-
-  const cfg = require("../deployments.json");
-
-  const Token = await ethers.getContractFactory("TestERC20WithName");
-  const tokenSrcArgs = ["USDC"];
-  const tokenSrc = await Token.deploy(...tokenSrcArgs);
-  const tokenSrcAddress = await tokenSrc.address;
-  console.log("USDC deployed to:", tokenSrcAddress);
-  const tokenDestArgs = ["USDT"];
-  const tokenDest = await Token.deploy(...tokenDestArgs);
-  const tokenDestAddress = await tokenDest.address;
-  console.log("USDT deployed to:", tokenDestAddress);
-
-  // Dump to file
-  cfg[network.chainId] = {
-    ...cfg[network.chainId],
-    tokenSrc: tokenSrcAddress,
-    tokenSrcArgs: tokenSrcArgs,
-    tokenDest: tokenDestAddress,
-    tokenDestArgs: tokenDestArgs,
-  };
-
-  fs.writeFile("deployments.json", JSON.stringify(cfg, null, 2), (err) => {
-    if (err) {
-      console.log(err);
-    }
-  });
+  const Token = await ethers.getContractFactory("TestERC20");
+  const opToken = await Token.connect(opWallet).deploy();
+  await opToken.deployed();
+  console.log("TEST on OP:", opToken.address);
+  const opTx = await opToken.mint(opWallet.address, amount);
+  await opTx.wait();
+  const abToken = await Token.connect(abWallet).deploy();
+  await abToken.deployed();
+  console.log("TEST on AB:", abToken.address);
+  const abTx = await abToken.mint(abWallet.address, amount);
+  await abTx.wait();
 }
 
 // We recommend this pattern to be able to use async/await everywhere
