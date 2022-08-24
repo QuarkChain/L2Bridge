@@ -61,7 +61,7 @@ cd L2Bridge/lpscript
 yarn
 ```
 ## Configurations
-You will need to create a .env file with the following configurations:
+You will need to create a .env file in the `L2Bridge/lpscript` folder with the following configurations:
 ```sh
 # the private key of the LP account (without 0x)
 # it is highly suggested to use a *different* LP account for each script running instance
@@ -181,7 +181,7 @@ You can download the code in two different locations, make copies of .env file f
 
 
 ## Quick Setup for Goerli
-1. Test ETH faucets:
+1. You will need an ETH account as the transaction signer of the LP script, as well as a test user. You can get them prepared with each chain's native currency with the following faucets:
    - [Gerli](https://goerlifaucet.com)
    - [Arbitrum](https://twitter.com/intent/tweet?text=ok%20I%20need%20@arbitrum%20to%20give%20me%20Nitro%20testnet%20gas.%20like%20VERY%20SOON.%20I%20cant%20take%20this,%20I%E2%80%99ve%20been%20waiting%20for%20@nitro_devnet%20release.%20I%20just%20want%20to%20start%20developing.%20but%20I%20need%20the%20gas%20IN%20MY%20WALLET%20NOW.%20can%20devs%20DO%20SOMETHING??%20%20SEND%20HERE:%200xAddA0B73Fe69a6E3e7c1072Bb9523105753e08f8)
    - [Optimism](https://optimismfaucet.xyz/)
@@ -190,8 +190,8 @@ You can download the code in two different locations, make copies of .env file f
    - Arbitrum [USDC](https://goerli-rollup-explorer.arbitrum.io/address/0x7ED4737F9AcEF816d0733A02CB35510b46C280Ff/write-contract)
    - Optimism [USDT](https://blockscout.com/optimism/goerli/address/0x33C27Ea9A7312f98838Ce32fD7ff8B6127B402BB/write-contract#address-tabs)
    - Optimism [USDC](https://blockscout.com/optimism/goerli/address/0x8A0ABea5E8bfE2d3014163bA47B29FF041A49A0a/write-contract#address-tabs)
-3. Get code and install. Check [here](#installation) for detail.
-4. Create a .env file with following content, only replacing `PRIVATE_KEY`, and optionally pick a `DIRECTION` between `A2O` and `O2A`.
+3. Get LP script code and install. Check [here](#installation) for detail.
+4. In the `L2Bridge/lpscript` folder, create a .env file with the following content, only replacing `PRIVATE_KEY` with the LP's private key you prepared in step 1, and optionally pick a `DIRECTION` between `A2O` and `O2A`.
     ```sh
     PRIVATE_KEY="2a84c..."
     DEPLOYMENTS="../../contract/deployments"
@@ -215,4 +215,4 @@ You can download the code in two different locations, make copies of .env file f
     ```sh
     yarn start
     ```
-6. Now you can deposit from [the frontend](https://layer2bridge.vercel.app) with user's account. 
+6. Now you can deposit from [the [frontend](https://layer2bridge.vercel.app) with the user's account. Note that if the `DIRECTION` of the script is set to `A2O`, you should send your asset from Arbitrum to Optimism for the script to take the order.
